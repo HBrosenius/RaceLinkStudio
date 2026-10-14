@@ -1,0 +1,29 @@
+# Local tools and build output
+.idea/
+.vscode/
+.gradle/
+**/build/
+local.properties
+
+# Credentials and signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+
+# Local timing data and generated reports
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+captures/
+backups/
+exports/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
