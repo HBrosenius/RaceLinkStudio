@@ -14,8 +14,13 @@ Install the debug APK on an Android 8.0+ device or emulator. A roughly 10-inch l
 6. Open **Inställningar** to edit the team name and add/rename coaching tags. Tags use stable identities, so renamed labels update older runs.
 7. Try **Markera ändring**, the light/dark switch and **Exportera CSV**. CSV excludes coaching tags/notes and labels every row as simulated.
 8. Close/reopen the app. Changes persist on this device. **Återställ demo** requires confirmation and clears demo edits.
+9. Open **Meny → Träningspass** to browse sessions, or **Rapporter** for each child's summary, chart and run history. Export the whole session or one child's CSV; tags and notes remain excluded from CSV.
+10. Choose **Meny → Starta träningspass**. Enter a name and date, optionally location, slope/course and training type. Select participants from the reusable roster; add skiers or edit their names/bibs here. Starting archives the current session with its original skier details and saves the roster for future sessions. Archived results, tags, notes and correction history persist locally and are read-only. **Återställ demo** also deletes archived sessions.
+11. In **Rapporter**, select **Alla pass · Alla åk** or one session, then **Alla åkare** or a skier. The report and CSV export follow both filters. Runs remain grouped by session, with charts per session for a selected skier; comparisons use previous completed runs from that same session. CSV includes session ID and date and omits coaching tags/notes.
 
 ## Build
+
+On this Windows checkout, the SDK and Pixel Tablet emulator are installed under ignored `.tools/` directories. Run `powershell -ExecutionPolicy Bypass -File .\run-local.ps1` from the repository to build, boot the emulator, install the APK and open the demo. The first emulator boot can take several minutes. The launcher uses Android Studio's bundled Java when available, with the installed JDK 22 as a fallback.
 
 Use Android Studio with JDK 17 or a compatible newer JDK, SDK platform 35 and Build Tools 35.0.0. Open the repository root. Android Studio can generate the machine-local `local.properties` file. The Gradle wrapper downloads the pinned Gradle version.
 
@@ -31,8 +36,8 @@ Validation on 14 October 2026: `:app:testDebugUnitTest :app:assembleDebug` succe
 
 - TimingAdapter isolates the simulator. Real BLE discovery/decoding, overlapping real-device correlation and background capture service are not implemented.
 - The demo uses a transactional SQLite snapshot, saved off the UI thread before displaying success. It preserves local state and correction audit but is not yet the planned append-only evidence journal/Room architecture. Read failures do not silently replace saved data with seed data.
-- The roster and one session are seeded. Roster editing, attendance selection, creating/closing sessions and earlier-session browsing remain future work.
-- CSV is implemented. Image/PDF reports, logo import, export previews, backup/restore and optional notification sound remain future work.
+- The initial roster and session are seeded. Named sessions with date, location, course and training type, participant selection, reusable roster additions/name and bib edits, archiving and browsing previous sessions are implemented. Roster removal and editing details of an already started session remain future work.
+- On-screen per-child session reports and whole-session/per-child CSV are implemented. Image/PDF reports, logo import, export previews, backup/restore and optional notification sound remain future work.
 - Timing values are integer milliseconds in this simulator. This does not establish the hardware's precision or protocol.
 - First device/emulator visual and lifecycle validation is still required before field use. JVM tests are not a substitute for tablet checks.
 - No official timing, certified race results or production data should be stored in this prototype.

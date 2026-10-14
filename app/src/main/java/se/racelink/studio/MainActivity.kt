@@ -85,11 +85,14 @@ private val Blue = Color(0xFF3266D5)
 }
 
 @Composable private fun Dashboard(s: Training, vm: TrainingViewModel) {
-    var selected by rememberSaveable { mutableIntStateOf(s.attempts.maxByOrNull { it.sequence }?.athleteId ?: s.athletes.first().id) }
+    var selected by rememberSaveable(s.sessionId) { mutableIntStateOf(s.attempts.maxByOrNull { it.sequence }?.athleteId ?: s.athletes.first().id) }
     var improvement by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var settings by rememberSaveable { mutableStateOf(false) }
     var reset by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
+    var browser by rememberSaveable { mutableStateOf<String?>(null) }
+    var newSession by remember { mutableStateOf(false) }
     var exportText by rememberSaveable { mutableStateOf("") }
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -116,12 +119,23 @@ private val Blue = Color(0xFF3266D5)
             }
             TextButton(onClick = { vm.update { it.copy(dark = !it.dark) } }, enabled = !vm.busy) { Text(if (s.dark) "Ljust" else "Mörkt") }
             TextButton(onClick = { settings = true }) { Text("Inställningar") }
+            Box {
+                OutlinedButton(onClick = { menu = true }) { Text("Meny") }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(text = { Text("Träningspass") }, onClick = { browser = "sessions"; menu = false })
+                    DropdownMenuItem(text = { Text("Rapporter") }, onClick = { browser = "reports"; menu = false })
+                    DropdownMenuItem(text = { Text("Starta träningspass") }, enabled = !vm.busy,
+                        onClick = { newSession = true; menu = false })
+                }
+            }
         }
         Text("${vm.adapter.label}  •  Träningspass med påhittade namn och tider", color = MaterialTheme.colorScheme.primary)
+        Text("Aktuellt pass · ${s.sessionLabel()}", style = MaterialTheme.typography.labelLarge)
+        if (s.sessionDetails().isNotBlank()) Text(s.sessionDetails(), style = MaterialTheme.typography.bodySmall)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { vm.simulate() }, enabled = !vm.busy) { Text("Simulera mål") }
             OutlinedButton(onClick = { vm.simulate(true) }, enabled = !vm.busy) { Text("Simulera avbrutet") }
-            OutlinedButton(onClick = { vm.update { it.copy(markers = it.markers + Marker(it.attempts.maxOf { a -> a.sequence }, "Ändrad övning")) } }, enabled = !vm.busy) { Text("Markera ändring") }
+            OutlinedButton(onClick = { vm.update { it.copy(markers = it.markers + Marker(it.attempts.maxOf { a -> a.sequence }, "Ändrad övning")) } }, enabled = !vm.busy && s.attempts.isNotEmpty()) { Text("Markera ändring") }
             OutlinedButton(onClick = { exportText = csv(s); export.launch("RaceLink-demo.csv") }) { Text("Exportera CSV") }
             TextButton(onClick = { reset = true }, enabled = !vm.busy) { Text("Återställ demo") }
         }
@@ -162,8 +176,18 @@ private val Blue = Color(0xFF3266D5)
     if (settings) Settings(s, !vm.busy, { settings = false }) { team, tags ->
         vm.update { it.copy(team = team, tags = tags) }; settings = false
     }
+    browser?.let { page -> SessionBrowser(s, page == "reports", { browser = null }, { report ->
+        exportText = report
+        export.launch("RaceLink-rapport.csv")
+    }) { session ->
+        exportText = csv(session)
+        export.launch("RaceLink-${session.sessionDate}-${session.sessionId.take(8)}.csv")
+    } }
+    if (newSession) SessionSetup(s, !vm.busy, { newSession = false }) { next ->
+        vm.update { next }; newSession = false
+    }
     if (reset) AlertDialog(onDismissRequest = { reset = false }, title = { Text("Återställ demodata?") },
-        text = { Text("Alla ändringar, anteckningar och nya demoåk tas bort. Detta påverkar bara den här demoappen.") },
+        text = { Text("Alla pass, rapporter, ändringar, anteckningar och nya demoåk tas bort. Detta påverkar bara den här demoappen.") },
         confirmButton = { TextButton(onClick = { vm.update { demoTraining() }; selected = 1; reset = false }) { Text("Återställ") } },
         dismissButton = { TextButton(onClick = { reset = false }) { Text("Avbryt") } })
 }
@@ -186,8 +210,8 @@ private val Blue = Color(0xFF3266D5)
     }
 }
 
-@Composable private fun RunDashboard(s: Training, athlete: Athlete, runs: List<Attempt>, latest: Attempt?, valid: List<Attempt>,
-    improvement: Boolean, setMode: (Boolean) -> Unit, edit: (String) -> Unit, modifier: Modifier) {
+@Composable internal fun RunDashboard(s: Training, athlete: Athlete, runs: List<Attempt>, latest: Attempt?, valid: List<Attempt>,
+    improvement: Boolean, setMode: (Boolean) -> Unit, edit: (String) -> Unit, modifier: Modifier, readOnly: Boolean = false) {
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Card {
             Column(Modifier.fillMaxWidth().padding(20.dp)) {
@@ -208,7 +232,7 @@ private val Blue = Color(0xFF3266D5)
         Card {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Dagens utveckling", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                    Text(if (readOnly) "Utveckling under passet" else "Dagens utveckling", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
                     TextButton(onClick = { setMode(!improvement) }) { Text(if (improvement) "Visa tider" else "Visa förbättring") }
                 }
                 Text(if (improvement) "Sekunder vunna från första fullföljda åket · högre är snabbare" else "Tid i sekunder · lägre är snabbare", style = MaterialTheme.typography.bodySmall)
@@ -216,7 +240,7 @@ private val Blue = Color(0xFF3266D5)
                 s.markers.forEach { Text("⋮ ${it.label} · efter passets resultat ${it.afterSequence}", style = MaterialTheme.typography.bodySmall) }
             }
         }
-        Text("Alla åk · tryck för anteckning eller rättelse", style = MaterialTheme.typography.titleMedium)
+        Text(if (readOnly) "Alla åk" else "Alla åk · tryck för anteckning eller rättelse", style = MaterialTheme.typography.titleMedium)
         runs.forEachIndexed { index, run ->
             val previous = runs.previous(run)
             val highlight = if (!run.complete || valid.size < 2) "" else when (run.durationMs) {
@@ -224,7 +248,7 @@ private val Blue = Color(0xFF3266D5)
                 valid.maxOfOrNull { it.durationMs!! } -> " · Långsammast"
                 else -> ""
             }
-            Card(Modifier.fillMaxWidth().clickable { edit(run.id) }) {
+            Card(Modifier.fillMaxWidth().clickable(enabled = !readOnly) { edit(run.id) }) {
                 Column(Modifier.padding(14.dp)) {
                     Text("Åk ${index + 1}     ${if (run.complete) seconds(run.durationMs!!) + " s" else "Avbrutet"}$highlight", fontWeight = FontWeight.SemiBold)
                     if (run.complete && previous != null) Text("${difference(run.durationMs!! - previous.durationMs!!)} · mot åk ${runs.indexOf(previous) + 1}", style = MaterialTheme.typography.bodySmall)
@@ -237,7 +261,7 @@ private val Blue = Color(0xFF3266D5)
     }
 }
 
-@Composable private fun TrendChart(runs: List<Attempt>, markers: List<Marker>, improvement: Boolean) {
+@Composable internal fun TrendChart(runs: List<Attempt>, markers: List<Marker>, improvement: Boolean) {
     val ink = MaterialTheme.colorScheme.onSurface
     val line = MaterialTheme.colorScheme.primary
     val baseline = runs.eligible().firstOrNull()?.durationMs ?: 0L
@@ -305,14 +329,4 @@ private val Blue = Color(0xFF3266D5)
         dismissButton = { TextButton(onClick = close) { Text("Avbryt") } })
 }
 
-fun csv(s: Training): String {
-    fun quote(value: String): String {
-        val safe = if (value.trimStart().firstOrNull() in listOf('=', '+', '-', '@')) "'$value" else value
-        return "\"${safe.replace("\"", "\"\"")}\""
-    }
-    return "\uFEFFKälla;Lag;Nummer;Namn;Resultat-ID;Tid (s);Status\r\n" + s.attempts.sortedBy { it.sequence }.joinToString("\r\n") { run ->
-        val athlete = s.athletes.first { it.id == run.athleteId }
-        listOf("SIMULATOR", s.team, athlete.bib.toString(), athlete.name, run.id,
-            if (run.complete) seconds(run.durationMs!!) else "", if (run.complete) "Fullföljt" else "Avbrutet").joinToString(";") { quote(it) }
-    }
-}
+fun csv(s: Training): String = reportCsv(reportRuns(listOf(s)))

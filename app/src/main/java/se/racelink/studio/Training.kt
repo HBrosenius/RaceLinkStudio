@@ -13,7 +13,13 @@ data class Training(
     val athletes: List<Athlete>, val attempts: List<Attempt>, val tags: List<CoachingTag>,
     val markers: List<Marker> = emptyList(), val audit: List<String> = emptyList(),
     val team: String = "Fjällbackens skidklubb", val dark: Boolean = false,
-    val pending: List<String> = emptyList()
+    val pending: List<String> = emptyList(),
+    val sessionId: String = java.util.UUID.randomUUID().toString(),
+    val sessionDate: String = java.time.LocalDate.now().toString(),
+    val archivedSessions: List<Training> = emptyList(),
+    val sessionName: String = "Träningspass", val location: String = "",
+    val course: String = "", val trainingType: String = "",
+    val roster: List<Athlete> = athletes
 )
 data class TimingObservation(val id: String, val bib: Int, val sequence: Int, val durationMs: Long?, val complete: Boolean)
 interface TimingAdapter {
@@ -41,9 +47,29 @@ fun List<Attempt>.eligible() = filter { it.complete && it.durationMs != null }
 fun List<Attempt>.previous(run: Attempt) = eligible().lastOrNull { it.sequence < run.sequence }
 fun seconds(ms: Long) = String.format(Locale.forLanguageTag("sv-SE"), "%.2f", ms / 1000.0)
 fun difference(ms: Long) = when {
-    ms < 0 -> "${seconds(-ms)} s kortare"
-    ms > 0 -> "${seconds(ms)} s längre"
+    ms < 0 -> "${seconds(-ms)} s snabbare"
+    ms > 0 -> "${seconds(ms)} s långsammare"
     else -> "Samma tid"
+}
+fun Training.sessionLabel() = "$sessionDate · $sessionName"
+fun Training.sessionDetails() = listOf(location, course, trainingType).filter { it.isNotBlank() }.joinToString(" · ")
+fun Training.startNewSession(
+    name: String = "Träningspass", date: String = java.time.LocalDate.now().toString(),
+    location: String = "", course: String = "", trainingType: String = "",
+    roster: List<Athlete> = this.roster, participants: Set<Int> = athletes.map { it.id }.toSet()
+): Training {
+    require(name.isNotBlank()) { "Ange ett passnamn" }
+    java.time.LocalDate.parse(date)
+    require(roster.isNotEmpty() && roster.all { it.name.isNotBlank() && it.bib > 0 }) { "Åkare behöver namn och positivt nummer" }
+    require(roster.map { it.id }.distinct().size == roster.size && roster.map { it.bib }.distinct().size == roster.size) { "Åkarnas nummer måste vara unika" }
+    require(participants.isNotEmpty() && participants.all { id -> roster.any { it.id == id } }) { "Välj minst en åkare" }
+    return copy(
+        athletes = roster.filter { it.id in participants }, roster = roster,
+        sessionName = name.trim(), sessionDate = date, location = location.trim(), course = course.trim(), trainingType = trainingType.trim(),
+        attempts = emptyList(), markers = emptyList(), audit = emptyList(), pending = emptyList(),
+        sessionId = java.util.UUID.randomUUID().toString(),
+        archivedSessions = listOf(copy(archivedSessions = emptyList(), pending = emptyList())) + archivedSessions
+    )
 }
 fun Training.correct(id: String, athleteId: Int, complete: Boolean, tags: Set<Int>, note: String): Training {
     require(athletes.any { it.id == athleteId })

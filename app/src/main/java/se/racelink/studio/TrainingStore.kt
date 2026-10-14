@@ -23,8 +23,12 @@ class TrainingStore(context: Context) : SQLiteOpenHelper(context, "racelink-demo
             db.setTransactionSuccessful()
         } finally { db.endTransaction() }
     }
-    private fun encode(s: Training) = JSONObject().apply {
+    private fun encode(s: Training): JSONObject = JSONObject().apply {
         put("team", s.team); put("dark", s.dark)
+        put("sessionId", s.sessionId); put("sessionDate", s.sessionDate)
+        put("sessionName", s.sessionName); put("location", s.location); put("course", s.course); put("trainingType", s.trainingType)
+        put("roster", JSONArray(s.roster.map { JSONObject().put("id", it.id).put("bib", it.bib).put("name", it.name) }))
+        put("archivedSessions", JSONArray(s.archivedSessions.map { encode(it) }))
         put("athletes", JSONArray(s.athletes.map { JSONObject().put("id", it.id).put("bib", it.bib).put("name", it.name) }))
         put("tags", JSONArray(s.tags.map { JSONObject().put("id", it.id).put("name", it.name) }))
         put("attempts", JSONArray(s.attempts.map { JSONObject().put("id", it.id).put("athlete", it.athleteId)
@@ -42,6 +46,13 @@ class TrainingStore(context: Context) : SQLiteOpenHelper(context, "racelink-demo
                 a.getJSONArray("tags").let { t -> (0 until t.length()).map { t.getInt(it) }.toSet() }, a.getString("note")) },
             objects("tags").map { CoachingTag(it.getInt("id"), it.getString("name")) },
             objects("markers").map { Marker(it.getInt("after"), it.getString("label")) }, strings("audit"),
-            o.getString("team"), o.getBoolean("dark"), strings("pending"))
+            o.getString("team"), o.getBoolean("dark"), strings("pending"),
+            o.optString("sessionId", "legacy-demo"),
+            o.optString("sessionDate", java.time.LocalDate.now().toString()),
+            o.optJSONArray("archivedSessions")?.let { a ->
+                (0 until a.length()).map { decode(a.getJSONObject(it)) }
+            } ?: emptyList(),
+            o.optString("sessionName", "Träningspass"), o.optString("location", ""), o.optString("course", ""), o.optString("trainingType", ""),
+            objects(if (o.has("roster")) "roster" else "athletes").map { Athlete(it.getInt("id"), it.getInt("bib"), it.getString("name")) })
     }
 }

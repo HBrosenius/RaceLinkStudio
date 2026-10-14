@@ -3,6 +3,7 @@
 .vscode/
 .gradle/
 .kotlin/
+.tools/
 **/build/
 local.properties
 
