@@ -13,14 +13,14 @@ import androidx.compose.ui.window.DialogProperties
 
 private data class SkierDraft(val id: Int, val name: String, val bib: String)
 
-@Composable internal fun SessionSetup(current: Training, enabled: Boolean, close: () -> Unit, start: (Training) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var date by remember { mutableStateOf(java.time.LocalDate.now().toString()) }
+@Composable internal fun SessionSetup(current: Training, enabled: Boolean, close: () -> Unit, editing: Boolean = false, start: (Training) -> Unit) {
+    var name by remember { mutableStateOf(if (editing) current.sessionName else "") }
+    var date by remember { mutableStateOf(if (editing) current.sessionDate else java.time.LocalDate.now().toString()) }
     var location by remember { mutableStateOf(current.location) }
-    var course by remember { mutableStateOf("") }
+    var course by remember { mutableStateOf(if (editing) current.course else "") }
     var type by remember { mutableStateOf(current.trainingType) }
     var roster by remember { mutableStateOf(current.roster.map { SkierDraft(it.id, it.name, it.bib.toString()) }) }
-    var selected by remember { mutableStateOf(current.athletes.map { it.id }.toSet()) }
+    var selected by remember { mutableStateOf(current.participantIds) }
     val validDate = runCatching { java.time.LocalDate.parse(date) }.isSuccess
     val validRoster = roster.all { it.name.isNotBlank() && (it.bib.toIntOrNull() ?: 0) > 0 } &&
         roster.mapNotNull { it.bib.toIntOrNull() }.distinct().size == roster.size
@@ -29,14 +29,15 @@ private data class SkierDraft(val id: Int, val name: String, val bib: String)
         Surface(Modifier.fillMaxSize().safeDrawingPadding(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Starta träningspass", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                    Text(if (editing) "Redigera aktuellt pass" else "Starta träningspass", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
                     TextButton(onClick = close) { Text("Avbryt") }
                     Button(enabled = enabled && valid, onClick = {
-                        start(current.startNewSession(name, date, location, course, type,
-                            roster.map { Athlete(it.id, it.bib.toInt(), it.name.trim()) }, selected))
-                    }) { Text("Spara aktuellt och starta") }
+                        val skiers = roster.map { Athlete(it.id, it.bib.toInt(), it.name.trim()) }
+                        start(if (editing) current.editSession(name, date, location, course, type, skiers, selected)
+                            else current.startNewSession(name, date, location, course, type, skiers, selected))
+                    }) { Text(if (editing) "Spara ändringar" else if (current.closedAt != null) "Starta pass" else "Spara aktuellt och starta") }
                 }
-                Text("Det aktuella passet sparas med sina resultat och åkarnamn. Ändringar i åkarlistan gäller det nya passet och framtida pass.")
+                Text(if (editing) "Befintliga åk sparas även om en åkare avmarkeras. Bara markerade åkare får nya simulerade mål. Ändringar påverkar inte avslutade pass." else "Det aktuella passet sparas med sina resultat och åkarnamn. Ändringar i åkarlistan gäller det nya passet och framtida pass.")
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(name, { name = it }, label = { Text("Passnamn *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                     OutlinedTextField(date, { date = it }, label = { Text("Datum (ÅÅÅÅ-MM-DD) *") }, isError = !validDate, singleLine = true)

@@ -18,13 +18,15 @@ import androidx.compose.ui.window.DialogProperties
     var sessionId by rememberSaveable { mutableStateOf<String?>(null) }
     var athleteId by rememberSaveable { mutableStateOf<Int?>(null) }
     var chooseSession by remember { mutableStateOf(false) }
+    var includeTags by rememberSaveable { mutableStateOf(false) }
+    var includeNotes by rememberSaveable { mutableStateOf(false) }
     // Archives are stored newest first; reports show oldest first and keep each run's session identity.
     val sessions = current.archivedSessions.reversed() + current
     val athletes = (listOf(current) + current.archivedSessions).flatMap { it.roster }.distinctBy { it.id }
     val rows = reportRuns(sessions, sessionId, athleteId)
     val complete = rows.count { it.attempt.complete && it.attempt.durationMs != null }
     val sessionLabel = sessions.find { it.sessionId == sessionId }?.let {
-        "${it.sessionLabel()} · Pass ${sessions.indexOf(it) + 1}${if (it.sessionId == current.sessionId) " · Pågående" else ""}"
+        "${it.sessionLabel()} · Pass ${sessions.indexOf(it) + 1}${if (it.sessionId == current.sessionId && it.closedAt == null) " · Pågående" else ""}"
     } ?: "Alla pass · Alla åk"
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize().safeDrawingPadding(), color = MaterialTheme.colorScheme.background) {
@@ -38,7 +40,7 @@ import androidx.compose.ui.window.DialogProperties
                     DropdownMenu(expanded = chooseSession, onDismissRequest = { chooseSession = false }) {
                         DropdownMenuItem(text = { Text("Alla pass · Alla åk") }, onClick = { sessionId = null; chooseSession = false })
                         sessions.forEachIndexed { index, session ->
-                            DropdownMenuItem(text = { Text("${session.sessionLabel()} · Pass ${index + 1}${if (session.sessionId == current.sessionId) " · Pågående" else ""}") },
+                            DropdownMenuItem(text = { Text("${session.sessionLabel()} · Pass ${index + 1}${if (session.sessionId == current.sessionId && session.closedAt == null) " · Pågående" else ""}") },
                                 onClick = { sessionId = session.sessionId; chooseSession = false })
                         }
                     }
@@ -51,6 +53,14 @@ import androidx.compose.ui.window.DialogProperties
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("${rows.size} åk · $complete fullföljda · ${rows.size - complete} avbrutna", Modifier.weight(1f))
                     OutlinedButton(onClick = { export(reportCsv(rows)) }, enabled = rows.isNotEmpty()) { Text("Exportera vald rapport (CSV)") }
+                    Spacer(Modifier.width(8.dp))
+                    PdfExportButton(rows, includeTags, includeNotes)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = includeTags, onCheckedChange = { includeTags = it })
+                    Text("Taggar i PDF")
+                    Checkbox(checked = includeNotes, onCheckedChange = { includeNotes = it })
+                    Text("Anteckningar i PDF")
                 }
                 Text("SIMULATOR · Påhittade namn och tider. CSV inkluderar pass och datum, utan taggar och anteckningar.", style = MaterialTheme.typography.bodySmall)
                 if (sessionId == null) Text("Åken visas per pass. Tider från olika banor och förhållanden jämförs inte automatiskt.", style = MaterialTheme.typography.bodySmall)
@@ -65,12 +75,26 @@ import androidx.compose.ui.window.DialogProperties
                                     if (session.sessionDetails().isNotBlank()) Text(session.sessionDetails())
                                 }
                             }
+                            item(key = "summary-${session.sessionId}") {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("Sammanfattning per åkare", style = MaterialTheme.typography.titleMedium)
+                                    sessionRows.groupBy { it.athlete.id }.values.forEach { skierRows ->
+                                        val summary = summarizeRuns(skierRows)
+                                        Card(Modifier.fillMaxWidth()) {
+                                            Column(Modifier.padding(12.dp)) {
+                                                Text(summary.name, style = MaterialTheme.typography.titleMedium)
+                                                Text(summary.description())
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             if (athleteId != null) item(key = "chart-${session.sessionId}") {
                                 Card {
                                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                                         Text("${sessionRows.first().athlete.name} · Utveckling under passet", style = MaterialTheme.typography.titleMedium)
                                         Text("Tid i sekunder · lägre är snabbare", style = MaterialTheme.typography.bodySmall)
-                                        TrendChart(session.runs(athleteId!!), session.markers, false)
+                                        TrendChart(session.runs(athleteId!!), session.markers, false, session.tags)
                                     }
                                 }
                             }
@@ -83,8 +107,10 @@ import androidx.compose.ui.window.DialogProperties
                                         Text("${row.athlete.name} · Nummer ${row.athlete.bib} · Åk ${row.number}", style = MaterialTheme.typography.titleMedium)
                                         Text(if (run.complete) "${seconds(run.durationMs!!)} s" else "Avbrutet")
                                         if (run.complete && previous != null) Text("${difference(run.durationMs!! - previous.durationMs!!)} jämfört med åk ${skierRuns.indexOf(previous) + 1}")
-                                        val tags = session.tags.filter { it.id in run.tags }.joinToString(" · ") { it.name }
-                                        if (tags.isNotBlank()) Text(tags, color = MaterialTheme.colorScheme.primary)
+                                        TagCategory.entries.forEach { category ->
+                                            val tags = session.tagDescription(run, category)
+                                            if (tags.isNotBlank()) Text("${category.label}: $tags", color = MaterialTheme.colorScheme.primary)
+                                        }
                                         if (run.note.isNotBlank()) Text(run.note)
                                     }
                                 }

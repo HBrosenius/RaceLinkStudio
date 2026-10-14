@@ -21,6 +21,7 @@ import androidx.compose.ui.window.DialogProperties
     var sessionId by rememberSaveable { mutableStateOf<String?>(if (reports) current.sessionId else null) }
     var athleteId by rememberSaveable { mutableStateOf<Int?>(null) }
     var improvement by rememberSaveable { mutableStateOf(false) }
+    var reviewHistory by rememberSaveable(sessionId) { mutableStateOf(false) }
     val sessions = listOf(current) + current.archivedSessions
     val session = sessions.find { it.sessionId == sessionId }
     val athlete = session?.athletes?.find { it.id == athleteId }
@@ -40,7 +41,7 @@ import androidx.compose.ui.window.DialogProperties
                         sessions.forEach { item ->
                             Card(onClick = { sessionId = item.sessionId; athleteId = null }) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                                    Text("${item.sessionLabel()} · ${if (item.sessionId == current.sessionId) "Aktuellt pass" else "Sparat pass"}", style = MaterialTheme.typography.titleMedium)
+                                    Text("${item.sessionLabel()} · ${if (item.sessionId == current.sessionId && item.closedAt == null) "Aktuellt pass" else "Sparat pass"}", style = MaterialTheme.typography.titleMedium)
                                     if (item.sessionDetails().isNotBlank()) Text(item.sessionDetails())
                                     Text("${item.team} · ${item.attempts.size} åk · ${item.attempts.eligible().size} fullföljda")
                                     Text("${item.athletes.size} åkare · ${item.audit.size} sparade ändringar", style = MaterialTheme.typography.bodySmall)
@@ -49,7 +50,7 @@ import androidx.compose.ui.window.DialogProperties
                         }
                     }
                 } else {
-                    Text("${session.sessionLabel()} · ${session.team} · ${if (session.sessionId == current.sessionId) "Pågående" else "Avslutat"}")
+                    Text("${session.sessionLabel()} · ${session.team} · ${if (session.sessionId == current.sessionId && session.closedAt == null) "Pågående" else "Avslutat"}")
                     Text("SIMULATOR · Påhittade namn och tider", color = MaterialTheme.colorScheme.primary)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { export(session) }) { Text("Exportera passets CSV") }
@@ -57,7 +58,28 @@ import androidx.compose.ui.window.DialogProperties
                             export(session.copy(athletes = listOf(athlete), attempts = session.runs(athlete.id)))
                         }) { Text("Exportera ${athlete.name}s CSV") }
                     }
-                    if (athlete != null) {
+                    if (session.timingEvents.isNotEmpty()) TextButton(onClick = { reviewHistory = !reviewHistory }) {
+                        Text(if (reviewHistory) "Visa åkrapport" else "Visa ursprungliga händelser och beslut")
+                    }
+                    if (reviewHistory) {
+                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            session.timingEvents.forEach { entry -> Card(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(16.dp)) {
+                                    Text(entry.reason, style = MaterialTheme.typography.titleMedium)
+                                    val event = entry.observation
+                                    Text("${event.id} · Nummer ${event.bib} · ${event.durationMs?.let { seconds(it) + " s" } ?: "Avbrutet"}")
+                                    Text(when (entry.decision) {
+                                        TimingDecision.ACCEPTED -> "Automatiskt matchad"
+                                        TimingDecision.ASSIGNED -> "Tilldelad ${session.athletes.find { it.id == entry.athleteId }?.name}"
+                                        TimingDecision.DUPLICATE -> "Dubblett av ${entry.attemptId}"
+                                        TimingDecision.REJECTED -> "Avvisad"
+                                        TimingDecision.WAITING -> "Väntar på granskning"
+                                    })
+                                    entry.decidedAt?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                }
+                            } }
+                        }
+                    } else if (athlete != null) {
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             session.athletes.forEach { item -> FilterChip(selected = item.id == athlete.id,
                                 onClick = { athleteId = item.id }, label = { Text(item.name) }) }

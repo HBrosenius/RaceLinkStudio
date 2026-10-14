@@ -1,0 +1,158 @@
+package se.racelink.studio
+
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+
+// A4 pages in PDF points, with measured wrapping and page breaks for long notes/names.
+internal fun createReportPdf(paragraphs: List<String>): ByteArray {
+    val doc = PdfDocument()
+    try {
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    var page: PdfDocument.Page? = null
+    var y = 0f
+    var number = 0
+    var sessionHeading = ""
+    var skierHeading = ""
+    fun finish() { page?.let { doc.finishPage(it) }; page = null }
+    fun newPage() {
+        finish()
+        number++
+        page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, number).create())
+        paint.textSize = 9f; paint.isFakeBoldText = false; paint.color = Color.DKGRAY
+        page!!.canvas.drawText("RaceLink Studio | SIMULATOR", 40f, 28f, paint)
+        val continuation = listOf(sessionHeading, skierHeading).filter { it.isNotBlank() }.joinToString(" | ")
+        if (continuation.isNotBlank()) {
+            val length = paint.breakText(continuation, true, 515f, null)
+            page!!.canvas.drawText(continuation.take(length), 40f, 43f, paint)
+        }
+        page!!.canvas.drawText("Sida $number", 500f, 818f, paint)
+        y = 68f
+    }
+    newPage()
+    paragraphs.forEach { paragraph ->
+        val heading = paragraph.startsWith("# ") || paragraph.startsWith("## ")
+        val fontSize = if (paragraph.startsWith("# ")) 17f else if (heading) 13f else 11f
+        val text = paragraph.removePrefix("## ").removePrefix("# ")
+        if (paragraph.startsWith("## ")) skierHeading = text
+        else if (paragraph.startsWith("# ") && !text.startsWith("RaceLink Studio")) {
+            sessionHeading = text; skierHeading = ""
+        }
+        if (heading && y > 730f) newPage()
+        text.split('\n').forEach { rawLine ->
+            var remaining = rawLine
+            do {
+                if (y + fontSize + 6f > 790f) newPage()
+                paint.textSize = fontSize; paint.isFakeBoldText = heading
+                paint.color = if (heading) Color.rgb(35, 70, 130) else Color.rgb(30, 30, 30)
+                val count = paint.breakText(remaining, true, 515f, null).coerceAtLeast(1).coerceAtMost(remaining.length)
+                val end = if (count < remaining.length) remaining.lastIndexOf(' ', count - 1).takeIf { it > 0 } ?: count else count
+                page!!.canvas.drawText(remaining.take(end), 40f, y, paint)
+                y += fontSize + 5f
+                remaining = remaining.drop(end).trimStart()
+            } while (remaining.isNotEmpty())
+        }
+        y += if (heading) 7f else 4f
+    }
+    finish()
+    return ByteArrayOutputStream().use { output -> doc.writeTo(output); output.toByteArray() }
+    } finally { doc.close() }
+}
+
+@Composable internal fun PdfExportButton(rows: List<ReportRun>, tags: Boolean, notes: Boolean) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var paragraphs by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var preview by remember { mutableStateOf(false) }
+    var saved by remember { mutableStateOf(false) }
+    val file = remember { File(context.cacheDir, "last-report.pdf") }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) {
+            busy = true
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val bytes = createReportPdf(paragraphs)
+                        requireNotNull(context.contentResolver.openOutputStream(uri)).use { it.write(bytes) }
+                        file.writeBytes(bytes)
+                    }
+                    saved = true
+                    message = "PDF sparad."
+                    preview = true
+                } catch (e: Exception) { message = "PDF kunde inte sparas: ${e.message}" }
+                finally { busy = false }
+            }
+        }
+    }
+    Column {
+        OutlinedButton(enabled = rows.isNotEmpty() && !busy, onClick = {
+            paragraphs = ArrayList(reportParagraphs(rows, tags, notes))
+            launcher.launch("RaceLink-rapport.pdf")
+        }) { Text(if (busy) "Sparar PDF…" else "Exportera PDF") }
+        message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        if (saved) TextButton(onClick = { preview = true }) { Text("Visa sparad PDF") }
+    }
+    if (preview) PdfPreview(file) { preview = false }
+}
+
+@Composable private fun PdfPreview(file: File, close: () -> Unit) {
+    var index by remember { mutableIntStateOf(0) }
+    var count by remember { mutableIntStateOf(1) }
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(index) {
+        bitmap = null
+        try {
+            val rendered = withContext(Dispatchers.IO) {
+                ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+                    PdfRenderer(fd).use { renderer ->
+                        renderer.openPage(index).use { page ->
+                            val result = Bitmap.createBitmap(page.width * 2, page.height * 2, Bitmap.Config.ARGB_8888)
+                            result.eraseColor(Color.WHITE)
+                            page.render(result, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            result to renderer.pageCount
+                        }
+                    }
+                }
+            }
+            bitmap = rendered.first; count = rendered.second
+        } catch (e: Exception) { error = "Förhandsvisning misslyckades: ${e.message}" }
+    }
+    Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
+            Column(Modifier.padding(16.dp)) {
+                Row {
+                    Text("PDF · Sida ${index + 1} av $count", Modifier.weight(1f))
+                    TextButton(onClick = { index-- }, enabled = index > 0) { Text("Föregående") }
+                    TextButton(onClick = { index++ }, enabled = index < count - 1) { Text("Nästa") }
+                    TextButton(onClick = close) { Text("Stäng") }
+                }
+                error?.let { Text(it) }
+                bitmap?.let { Image(it.asImageBitmap(), "Rapport sida ${index + 1}", Modifier.fillMaxWidth().weight(1f)) }
+            }
+        }
+    }
+}

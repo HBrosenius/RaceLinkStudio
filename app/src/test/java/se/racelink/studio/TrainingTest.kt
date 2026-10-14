@@ -4,6 +4,157 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TrainingTest {
+    @Test fun closingSessionPreservesEvidenceWithoutCreatingAnotherSession() {
+        val s = demoTraining().selectNextAthlete(2).simulateNext(SimulatorAdapter())
+        val closed = s.closeSession()
+        assertEquals(s.sessionId, closed.sessionId)
+        assertEquals(s.attempts, closed.attempts)
+        assertEquals(s.timingEvents, closed.timingEvents)
+        assertEquals(s.archivedSessions, closed.archivedSessions)
+        assertEquals(s.markers, closed.markers)
+        assertNotNull(closed.closedAt)
+        assertNull(closed.nextAthleteId)
+        assertTrue(closed.pending.isEmpty())
+        assertEquals(s.audit.size + 1, closed.audit.size)
+        assertEquals(closed, closed.closeSession())
+        assertEquals(closed, decodeBackup(encodeBackup(closed)))
+        val next = closed.startNewSession()
+        assertNull(next.closedAt)
+        assertTrue(next.attempts.isEmpty())
+        assertEquals(listOf(closed.sessionId), next.archivedSessions.map { it.sessionId })
+        assertEquals(closed.closedAt, next.archivedSessions.single().closedAt)
+    }
+    @Test fun closedSessionRejectsTimingAndEditsWhileUnresolvedQueueBlocksClosing() {
+        val s = demoTraining()
+        assertTrue(runCatching { s.simulateReview(true).closeSession() }.isFailure)
+        val closed = s.closeSession()
+        assertTrue(runCatching { closed.selectNextAthlete(1) }.isFailure)
+        assertTrue(runCatching { closed.simulateNext(SimulatorAdapter()) }.isFailure)
+        assertTrue(runCatching { closed.toggleTag(closed.attempts.first().id, 1) }.isFailure)
+        assertTrue(runCatching { closed.ingest(SimulatorAdapter().next(20, 12)) }.isFailure)
+        assertTrue(runCatching { closed.editSession("Nytt", closed.sessionDate, "", "", "", closed.roster, closed.participantIds) }.isFailure)
+    }
+    @Test fun longChartPagesDoNotLoseDuplicateOrRenumberRuns() {
+        val runs = (1..30).map { Attempt("run-$it", 1, it, 33000) }
+        val items = chartRuns(runs, false)
+        assertEquals(listOf(12, 12, 6), (0..2).map { chartPage(items, it).size })
+        assertEquals((1..30).toList(), (0..2).flatMap { chartPage(items, it) }.map { it.number })
+        assertEquals(chartPage(items, 2), chartPage(items, 99))
+        assertEquals(listOf(7, 8, 9, 10, 11, 12), chartPage(items, 1, 6).map { it.number })
+        assertTrue(chartPage(emptyList(), 0).isEmpty())
+    }
+    @Test fun chartFilterKeepsOriginalRunNumbersAndIncompleteTaggedAttempts() {
+        val runs = listOf(Attempt("a", 1, 1, 33000), Attempt("b", 1, 2, null, false, setOf(1)),
+            Attempt("c", 1, 3, 32000, tags = setOf(2)))
+        val filtered = chartRuns(runs, true)
+        assertEquals(listOf(2, 3), filtered.map { it.number })
+        assertEquals(listOf("b", "c"), filtered.map { it.attempt.id })
+        assertEquals(runs, chartRuns(runs, false).map { it.attempt })
+        assertTrue(chartRuns(listOf(runs.first()), true).isEmpty())
+    }
+    @Test fun chartTapsFindTheNearestPointWithinTouchTolerance() {
+        val points = listOf(ChartPoint(75f, 100f), ChartPoint(225f, 160f))
+        assertEquals(0, chartHit(points, 90f, 105f, 28f))
+        assertEquals(1, chartHit(points, 220f, 160f, 28f))
+        assertNull(chartHit(points, 150f, 130f, 28f))
+        assertNull(chartHit(emptyList(), 0f, 0f, 28f))
+    }
+    @Test fun multipleTagsInBothCategoriesPersistIndependentlyAndExportWithLabels() {
+        val s = demoTraining()
+        val runId = s.attempts.first().id
+        val actual = s.tags.filter { it.category == TagCategory.RUN }.take(2)
+        val focus = s.tags.filter { it.category == TagCategory.NEXT_FOCUS }.take(2)
+        val tagged = (actual + focus).fold(s) { state, tag -> state.toggleTag(runId, tag.id) }
+        assertEquals((actual + focus).map { it.id }.toSet(), tagged.attempts.first().tags)
+        assertEquals(actual.joinToString(" · ") { it.name }, tagged.tagDescription(tagged.attempts.first(), TagCategory.RUN))
+        val removed = tagged.toggleTag(runId, actual.first().id)
+        assertTrue(removed.attempts.first().tags.containsAll(focus.map { it.id }))
+        assertEquals(tagged, decodeBackup(encodeBackup(tagged)))
+        val pdf = reportParagraphs(reportRuns(listOf(tagged)), includeTags = true).joinToString("\n")
+        assertTrue(pdf.contains("Beskriv åket:"))
+        assertTrue(pdf.contains("Fokus nästa åk:"))
+        assertFalse(reportParagraphs(reportRuns(listOf(tagged))).joinToString("\n").contains(focus.first().name))
+    }
+    @Test fun selectedSkierReceivesRepeatedFinishesAndIncompleteAttempts() {
+        val s = demoTraining().selectNextAthlete(3)
+        val finished = s.simulateNext(SimulatorAdapter()).simulateNext(SimulatorAdapter())
+        assertEquals(listOf(3, 3), finished.attempts.takeLast(2).map { it.athleteId })
+        assertEquals(3, finished.nextAthleteId)
+        val incomplete = finished.simulateNext(SimulatorAdapter(), true)
+        assertEquals(3, incomplete.attempts.last().athleteId)
+        assertFalse(incomplete.attempts.last().complete)
+        assertEquals(2, incomplete.selectNextAthlete(2).simulateNext(SimulatorAdapter()).attempts.last().athleteId)
+        assertTrue(runCatching { incomplete.selectNextAthlete(null).simulateNext(SimulatorAdapter()) }.isFailure)
+    }
+    @Test fun nextSkierMustBeActiveAndClearsOnNewSessionOrAttendanceRemoval() {
+        val s = demoTraining().selectNextAthlete(1)
+        assertTrue(runCatching { s.selectNextAthlete(999) }.isFailure)
+        assertNull(s.startNewSession().nextAthleteId)
+        val edited = s.editSession(s.sessionName, s.sessionDate, "", "", "", s.roster, setOf(2))
+        assertNull(edited.nextAthleteId)
+        assertTrue(runCatching { edited.selectNextAthlete(1) }.isFailure)
+        assertEquals(1, s.editSession("Nytt namn", s.sessionDate, "", "", "", s.roster, s.participantIds).nextAthleteId)
+    }
+    @Test fun quickTagsToggleWithoutChangingRunEvidence() {
+        val s = demoTraining()
+        val run = s.attempts.first()
+        val tagged = s.toggleTag(run.id, 2)
+        assertEquals(run.copy(tags = setOf(2)), tagged.attempts.first())
+        assertEquals(1, tagged.audit.size)
+        val untagged = tagged.toggleTag(run.id, 2)
+        assertEquals(run, untagged.attempts.first())
+        assertEquals(2, untagged.audit.size)
+        assertTrue(runCatching { s.toggleTag(run.id, 999) }.isFailure)
+    }
+    @Test fun summariesExcludeIncompleteTimesAndNeverCompareDifferentSessions() {
+        val s = demoTraining()
+        val rows = reportRuns(listOf(s), athleteId = 1)
+        val summary = summarizeRuns(rows)
+        assertEquals(5, summary.total)
+        assertEquals(4, summary.completed)
+        assertEquals(33420L, summary.bestMs)
+        assertEquals(-2200L, summary.progressMs)
+        val endedEarly = summarizeRuns(rows.take(3))
+        assertNull(endedEarly.latestMs)
+        assertEquals(34980L, endedEarly.bestMs)
+        assertNull(summarizeRuns(rows + reportRuns(listOf(s.copy(sessionId = "another")), athleteId = 1)).progressMs)
+    }
+    @Test fun pdfContentRespectsScopeAndExplicitPrivacyOptions() {
+        val s = demoTraining().correct("seed-0", 1, true, setOf(1), "Privat anteckning")
+        val rows = reportRuns(listOf(s), athleteId = 1)
+        val defaults = reportParagraphs(rows).joinToString("\n")
+        assertFalse(defaults.contains("Privat anteckning"))
+        assertFalse(defaults.contains("Teknikfokus"))
+        assertFalse(defaults.contains("Elias"))
+        val included = reportParagraphs(rows, true, true).joinToString("\n")
+        assertTrue(included.contains("Privat anteckning"))
+        assertTrue(included.contains("Teknikfokus"))
+        assertTrue(included.contains(s.sessionLabel()))
+        assertTrue(included.contains("Avbrutet"))
+    }
+    @Test fun editActiveSessionPreservesEvidenceAndArchivesWhileChangingAttendance() {
+        val old = demoTraining().copy(archivedSessions = listOf(demoTraining()), pending = listOf("seed-0"))
+        val roster = old.roster + Athlete(5, 50, "Sara")
+        val edited = old.editSession("Slalom", "2026-10-15", "Åre", "Bana 2", "Teknik", roster, setOf(2, 5))
+        assertEquals(old.sessionId, edited.sessionId)
+        assertEquals(old.attempts, edited.attempts)
+        assertEquals(old.pending, edited.pending)
+        assertEquals(old.markers, edited.markers)
+        assertEquals(old.archivedSessions, edited.archivedSessions)
+        assertEquals(listOf(2, 5), edited.activeAthletes().map { it.id })
+        assertEquals(old.runs(1), edited.runs(1))
+        assertTrue(edited.athletes.any { it.id == 1 })
+        assertEquals("Slalom", edited.sessionName)
+        assertEquals(1, edited.audit.size)
+        assertEquals(1, edited.ingest(SimulatorAdapter().next(18, 12)).reviewQueue().size)
+        assertEquals(5, edited.ingest(SimulatorAdapter().next(18, 50)).attempts.last().athleteId)
+        assertEquals(edited, edited.editSession("Slalom", "2026-10-15", "Åre", "Bana 2", "Teknik", roster, setOf(2, 5)))
+    }
+    @Test fun editActiveSessionRejectsLostIdentitiesAndEmptyAttendance() {
+        val s = demoTraining()
+        assertTrue(runCatching { s.editSession(s.sessionName, s.sessionDate, "", "", "", s.roster.drop(1), setOf(2)) }.isFailure)
+        assertTrue(runCatching { s.editSession(s.sessionName, s.sessionDate, "", "", "", s.roster, emptySet()) }.isFailure)
+    }
     @Test fun sessionSetupPreservesRosterAndHistoricalNames() {
         val old = demoTraining()
         val roster = old.roster.map { if (it.id == 1) it.copy(name = "Alma Ny", bib = 99) else it } + Athlete(5, 50, "Sara")
@@ -100,8 +251,11 @@ class TrainingTest {
         assertEquals(s.runs(2).size + 1, changed.runs(2).size)
         assertEquals(1, changed.audit.size)
     }
-    @Test(expected = IllegalArgumentException::class) fun unknownBibRequiresReviewInsteadOfGuessing() {
-        demoTraining().ingest(TimingObservation("unknown", 999, 18, 33000, true))
+    @Test fun unknownBibRequiresReviewInsteadOfGuessing() {
+        val old = demoTraining()
+        val next = old.ingest(TimingObservation("unknown", 999, 18, 33000, true))
+        assertEquals(old.attempts, next.attempts)
+        assertEquals(1, next.reviewQueue().size)
     }
     @Test fun seededSimulatorIsDeterministic() {
         assertEquals(SimulatorAdapter().next(20, 12), SimulatorAdapter().next(20, 12))
