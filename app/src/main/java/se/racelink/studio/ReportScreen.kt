@@ -15,19 +15,27 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
 @Composable internal fun Reports(current: Training, close: () -> Unit, export: (String) -> Unit) {
-    var sessionId by rememberSaveable { mutableStateOf<String?>(null) }
-    var athleteId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var mode by rememberSaveable { mutableStateOf("all") }
+    var selectedSessions by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+    var selectedAthletes by rememberSaveable { mutableStateOf(arrayListOf<Int>()) }
+    var allAthletes by rememberSaveable { mutableStateOf(true) }
+    var from by rememberSaveable { mutableStateOf("") }
+    var through by rememberSaveable { mutableStateOf("") }
     var chooseSession by remember { mutableStateOf(false) }
     var includeTags by rememberSaveable { mutableStateOf(false) }
     var includeNotes by rememberSaveable { mutableStateOf(false) }
     // Archives are stored newest first; reports show oldest first and keep each run's session identity.
     val sessions = current.archivedSessions.reversed() + current
     val athletes = (listOf(current) + current.archivedSessions).flatMap { it.roster }.distinctBy { it.id }
-    val rows = reportRuns(sessions, sessionId, athleteId)
+    val athleteId = if (!allAthletes) selectedAthletes.singleOrNull() else null
+    val filtered = runCatching {
+        if (mode == "dates") require(from.isNotBlank() && through.isNotBlank()) { "Ange båda datumen (ÅÅÅÅ-MM-DD)" }
+        filterReport(reportRuns(sessions), if (mode == "sessions") selectedSessions.toSet() else null,
+            if (mode == "dates") from else null, if (mode == "dates") through else null,
+            if (allAthletes) null else selectedAthletes.toSet())
+    }
+    val rows = filtered.getOrDefault(emptyList())
     val complete = rows.count { it.attempt.complete && it.attempt.durationMs != null }
-    val sessionLabel = sessions.find { it.sessionId == sessionId }?.let {
-        "${it.sessionLabel()} · Pass ${sessions.indexOf(it) + 1}${if (it.sessionId == current.sessionId && it.closedAt == null) " · Pågående" else ""}"
-    } ?: "Alla pass · Alla åk"
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Surface(Modifier.fillMaxSize().safeDrawingPadding(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -35,20 +43,38 @@ import androidx.compose.ui.window.DialogProperties
                     Text("Rapporter", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
                     TextButton(onClick = close) { Text("Till aktuellt pass") }
                 }
-                Box {
-                    OutlinedButton(onClick = { chooseSession = true }) { Text("Träningspass: $sessionLabel") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = mode == "all", onClick = { mode = "all" }, label = { Text("Alla pass") })
+                    FilterChip(selected = mode == "sessions", onClick = { mode = "sessions"; chooseSession = true }, label = { Text("Välj pass (${selectedSessions.size})") })
+                    FilterChip(selected = mode == "dates", onClick = {
+                        mode = "dates"
+                        if (from.isBlank()) from = sessions.minOf { it.sessionDate }
+                        if (through.isBlank()) through = sessions.maxOf { it.sessionDate }
+                    }, label = { Text("Datumintervall") })
+                }
+                if (mode == "dates") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(from, { from = it }, label = { Text("Från (ÅÅÅÅ-MM-DD)") }, singleLine = true, modifier = Modifier.weight(1f), isError = filtered.isFailure)
+                    OutlinedTextField(through, { through = it }, label = { Text("Till och med (ÅÅÅÅ-MM-DD)") }, singleLine = true, modifier = Modifier.weight(1f), isError = filtered.isFailure)
+                }
+                filtered.exceptionOrNull()?.let { Text(if (it is java.time.format.DateTimeParseException) "Ange giltiga datum som ÅÅÅÅ-MM-DD." else it.message ?: "Ogiltigt datumintervall", color = MaterialTheme.colorScheme.error) }
+                if (mode == "sessions") Box {
+                    OutlinedButton(onClick = { chooseSession = true }) { Text("${selectedSessions.size} valda pass · ändra urval") }
                     DropdownMenu(expanded = chooseSession, onDismissRequest = { chooseSession = false }) {
-                        DropdownMenuItem(text = { Text("Alla pass · Alla åk") }, onClick = { sessionId = null; chooseSession = false })
                         sessions.forEachIndexed { index, session ->
                             DropdownMenuItem(text = { Text("${session.sessionLabel()} · Pass ${index + 1}${if (session.sessionId == current.sessionId && session.closedAt == null) " · Pågående" else ""}") },
-                                onClick = { sessionId = session.sessionId; chooseSession = false })
+                                leadingIcon = { Checkbox(checked = session.sessionId in selectedSessions, onCheckedChange = null) },
+                                onClick = { selectedSessions = ArrayList(if (session.sessionId in selectedSessions) selectedSessions - session.sessionId else selectedSessions + session.sessionId) })
                         }
+                        DropdownMenuItem(text = { Text("Klart") }, onClick = { chooseSession = false })
                     }
                 }
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = athleteId == null, onClick = { athleteId = null }, label = { Text("Alla åkare") })
-                    athletes.forEach { athlete -> FilterChip(selected = athleteId == athlete.id,
-                        onClick = { athleteId = athlete.id }, label = { Text(athlete.name) }) }
+                    FilterChip(selected = allAthletes, onClick = { allAthletes = true; selectedAthletes = arrayListOf() }, label = { Text("Alla åkare") })
+                    athletes.forEach { athlete -> FilterChip(selected = !allAthletes && athlete.id in selectedAthletes,
+                        onClick = {
+                            selectedAthletes = ArrayList(if (allAthletes) listOf(athlete.id) else if (athlete.id in selectedAthletes) selectedAthletes - athlete.id else selectedAthletes + athlete.id)
+                            allAthletes = false
+                        }, label = { Text(athlete.name) }) }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("${rows.size} åk · $complete fullföljda · ${rows.size - complete} avbrutna", Modifier.weight(1f))
@@ -63,10 +89,10 @@ import androidx.compose.ui.window.DialogProperties
                     Text("Anteckningar i PDF")
                 }
                 Text("SIMULATOR · Påhittade namn och tider. CSV inkluderar pass och datum, utan taggar och anteckningar.", style = MaterialTheme.typography.bodySmall)
-                if (sessionId == null) Text("Åken visas per pass. Tider från olika banor och förhållanden jämförs inte automatiskt.", style = MaterialTheme.typography.bodySmall)
+                if (rows.map { it.session.sessionId }.distinct().size > 1) Text("Åken visas per pass. Tider från olika banor och förhållanden jämförs inte automatiskt.", style = MaterialTheme.typography.bodySmall)
                 LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (rows.isEmpty()) item { Text("Inga åk för valt pass och vald åkare.") }
-                    sessions.filter { sessionId == null || it.sessionId == sessionId }.forEach { session ->
+                    if (rows.isEmpty()) item { Text("Inga åk för valda pass/datum och åkare.") }
+                    sessions.forEach { session ->
                         val sessionRows = rows.filter { it.session.sessionId == session.sessionId }
                         if (sessionRows.isNotEmpty()) {
                             item(key = "header-${session.sessionId}") {
