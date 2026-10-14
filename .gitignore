@@ -2,6 +2,7 @@
 .idea/
 .vscode/
 .gradle/
+.kotlin/
 **/build/
 local.properties
 
@@ -22,6 +23,7 @@ local.properties
 captures/
 backups/
 exports/
+*.apk
 
 # Operating system files
 .DS_Store

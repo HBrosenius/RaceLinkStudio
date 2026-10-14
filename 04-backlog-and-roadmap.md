@@ -1,6 +1,10 @@
 # Prioritized MVP backlog and roadmap
 
-Android standalone baseline. P0 is required for trustworthy training; conditional P0 applies only to selected topology or hardware release. No implementation has started.
+Android standalone baseline. P0 is required for trustworthy training; conditional P0 applies only to selected topology or hardware release. A first native simulator demo is implemented; no full production phase is declared complete.
+
+## Implementation progress — 14 October 2026
+
+The debug APK builds and six domain tests pass. Initial slices of B03/B04/B07/B08/B09/B18/B19 are available: domain model, deterministic adapter, Swedish dashboard, personal charts, correction audit, local save, CSV, tags, team name and course markers. Real-device lifecycle validation, robust evidence journaling, roster/session management, full reports, backup/restore, logo import and notification sound remain outstanding. B02 and production reliability gates are not yet complete. See IMPLEMENTATION.md for details.
 
 ## Backlog
 

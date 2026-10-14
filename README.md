@@ -1,10 +1,12 @@
 # RaceLink Studio
 
-Planning baseline v3 · 14 October 2026 · Feature interview complete · Implementation not started
+Planning baseline v3 · 14 October 2026 · Native Android demo implementation started
 
 A tablet-first ski training application for Brower Race Link RL. The Android tablet runs the application, stores all sessions and processes timing without a Windows PC or internet connection.
 
 ## Documents
+
+- [Run and build the Android demo — implemented features and limits](IMPLEMENTATION.md)
 
 - [Product requirements and UI flows](01-product-requirements.md)
 - [Architecture and data model](02-architecture-and-data-model.md)
@@ -24,7 +26,7 @@ The Swedish dashboard focuses on each child's personal progress, not rankings: l
 
 ## Next checkpoint
 
-Feature and visual interviews are complete. The next useful step is a reviewable tablet-screen prototype based on the confirmed requirements. Exact tablet/Android version and hardware capabilities remain to validate; backup destination and operating limits remain deployment decisions. No application implementation has started.
+The first native Android demo is implemented and builds successfully. Review it on a tablet/emulator before expanding the MVP. See IMPLEMENTATION.md for working features, build instructions and deferred features. Exact tablet/Android version and hardware capabilities remain to validate; backup destination and operating limits remain deployment decisions.
 
 The former rule that offline operator edits queue for server review is superseded for the standalone tablet: local operator edits commit immediately with audit history. Uncertain timing associations still require review. If remote editing is introduced later, its offline changes must be reviewed by the authoritative tablet.
 

@@ -1,6 +1,6 @@
 # Architecture and data model
 
-Standalone Android tablet is the authority. This replaces the Windows service, React operator PWA, LAN certificate onboarding and server-dependent operator workflow. No implementation has begun. Interview baseline: approximately 10-inch tablet beside timer; direct BLE, multiple skiers, no splits, no remote viewers. Pi and publishing modules below are future extension boundaries, not initial deliverables.
+Standalone Android tablet is the authority. This replaces the Windows service, React operator PWA, LAN certificate onboarding and server-dependent operator workflow. The first native demo is implemented; this document describes the target architecture, while IMPLEMENTATION.md records current scope and the temporary SQLite snapshot approach. Interview baseline: approximately 10-inch tablet beside timer; direct BLE, multiple skiers, no splits, no remote viewers. Pi and publishing modules below are future extension boundaries, not initial deliverables.
 
 ## Topology
 

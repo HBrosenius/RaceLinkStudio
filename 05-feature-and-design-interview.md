@@ -1,6 +1,6 @@
 # Feature and design interview
 
-Status: feature and design interview complete, 14 October 2026. Confirmed answers are incorporated into the planning baseline; no implementation started.
+Status: feature and design interview complete, 14 October 2026. Confirmed answers are incorporated into the planning baseline. A first simulator demo now implements a subset; see IMPLEMENTATION.md for current scope.
 
 ## People and purpose
 
