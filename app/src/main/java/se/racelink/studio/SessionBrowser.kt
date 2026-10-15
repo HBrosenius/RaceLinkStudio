@@ -1,5 +1,6 @@
 package se.racelink.studio
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,14 +11,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-@Composable internal fun SessionBrowser(current: Training, reports: Boolean, close: () -> Unit, exportReport: (String) -> Unit, export: (Training) -> Unit) {
+@Composable internal fun SessionBrowser(current: Training, reports: Boolean, close: () -> Unit, embedded: Boolean = false) {
     if (reports) {
-        Reports(current, close, exportReport)
+        Reports(current, close, embedded)
         return
     }
+    var scopedReports by rememberSaveable { mutableStateOf(false) }
+    val exportVm: ReportExportViewModel = viewModel(key = "session-export")
+    var exporting by rememberSaveable { mutableStateOf(false) }
     var sessionId by rememberSaveable { mutableStateOf<String?>(if (reports) current.sessionId else null) }
     var athleteId by rememberSaveable { mutableStateOf<Int?>(null) }
     var improvement by rememberSaveable { mutableStateOf(false) }
@@ -25,19 +30,28 @@ import androidx.compose.ui.window.DialogProperties
     val sessions = listOf(current) + current.archivedSessions
     val session = sessions.find { it.sessionId == sessionId }
     val athlete = session?.athletes?.find { it.id == athleteId }
-    Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    if (scopedReports && session != null) {
+        BackHandler { scopedReports = false }
+        Reports(current, { scopedReports = false }, embedded,
+            initialSelection = ReportSelection("sessions", setOf(session.sessionId), athleteId?.let { setOf(it) }),
+            closeLabel = "Tillbaka till passet")
+        return
+    }
+    val back = { if (reviewHistory) reviewHistory = false else if (athleteId != null) athleteId = null else if (sessionId != null) sessionId = null else close() }
+    BackHandler(enabled = embedded && (sessionId != null || reviewHistory)) { back() }
+    ScreenContainer(embedded, back) {
         Surface(Modifier.fillMaxSize().safeDrawingPadding(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(if (reports) "Rapporter" else "Träningspass", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
                     if (session != null) TextButton(onClick = {
-                        if (athleteId != null) athleteId = null else sessionId = null
+                        back()
                     }) { Text("Tillbaka") }
                     TextButton(onClick = close) { Text("Till aktuellt pass") }
                 }
                 if (session == null) {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (current.archivedSessions.isEmpty()) Text("Inga tidigare pass ännu. Välj Meny → Starta träningspass när träningen är klar.")
+                        if (current.archivedSessions.isEmpty()) Text("Inga tidigare pass ännu. Välj Passåtgärder → Starta träningspass när träningen är klar.")
                         sessions.forEach { item ->
                             Card(onClick = { sessionId = item.sessionId; athleteId = null }) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
@@ -53,11 +67,13 @@ import androidx.compose.ui.window.DialogProperties
                     Text("${session.sessionLabel()} · ${session.team} · ${if (session.sessionId == current.sessionId && session.closedAt == null) "Pågående" else "Avslutat"}")
                     Text("SIMULATOR · Påhittade namn och tider", color = MaterialTheme.colorScheme.primary)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { export(session) }) { Text("Exportera passets CSV") }
+                        Button(onClick = { scopedReports = true }) { Text("Öppna i Rapporter") }
+                        OutlinedButton(onClick = { exportVm.begin(reportRuns(listOf(session))); exporting = true }) { Text("Exportera passets CSV") }
                         if (athlete != null) OutlinedButton(onClick = {
-                            export(session.copy(athletes = listOf(athlete), attempts = session.runs(athlete.id)))
+                            exportVm.begin(reportRuns(listOf(session), athleteId = athlete.id)); exporting = true
                         }) { Text("Exportera ${athlete.name}s CSV") }
                     }
+                    exportVm.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                     if (session.timingEvents.isNotEmpty()) TextButton(onClick = { reviewHistory = !reviewHistory }) {
                         Text(if (reviewHistory) "Visa åkrapport" else "Visa ursprungliga händelser och beslut")
                     }
@@ -67,7 +83,7 @@ import androidx.compose.ui.window.DialogProperties
                                 Column(Modifier.padding(16.dp)) {
                                     Text(entry.reason, style = MaterialTheme.typography.titleMedium)
                                     val event = entry.observation
-                                    Text("${event.id} · Nummer ${event.bib} · ${event.durationMs?.let { seconds(it) + " s" } ?: "Avbrutet"}")
+                                    Text("${event.id} · Nummer ${event.bib} · ${event.durationMs?.let { seconds(it) + " s" } ?: "DNF"}")
                                     Text(when (entry.decision) {
                                         TimingDecision.ACCEPTED -> "Automatiskt matchad"
                                         TimingDecision.ASSIGNED -> "Tilldelad ${session.athletes.find { it.id == entry.athleteId }?.name}"
@@ -96,7 +112,7 @@ import androidx.compose.ui.window.DialogProperties
                                 Card(onClick = { athleteId = item.id }) {
                                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                                         Text("${item.bib} · ${item.name}", style = MaterialTheme.typography.titleMedium)
-                                        Text("${valid.size} fullföljda · ${runs.size - valid.size} avbrutna")
+                                        Text("${valid.size} fullföljda · ${runs.size - valid.size} DNF")
                                         if (valid.isEmpty()) Text("Inga fullföljda åk") else {
                                             Text("Snabbast ${seconds(valid.minOf { it.durationMs!! })} s · Senast ${seconds(valid.last().durationMs!!)} s")
                                             if (valid.size > 1) Text("${difference(valid.last().durationMs!! - valid.first().durationMs!!)} jämfört med första fullföljda åket")
@@ -111,4 +127,6 @@ import androidx.compose.ui.window.DialogProperties
             }
         }
     }
+    if (exporting) ReportExportDialog(exportVm, { exporting = false }, initialFormat = "CSV")
+
 }

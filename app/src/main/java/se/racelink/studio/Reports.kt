@@ -11,11 +11,16 @@ fun summarizeRuns(rows: List<ReportRun>): SkierSummary {
         if (rows.map { it.session.sessionId }.distinct().size == 1 && valid.size > 1)
             valid.last().attempt.durationMs!! - valid.first().attempt.durationMs!! else null)
 }
-fun SkierSummary.description() = "$total åk · $completed fullföljda · ${total - completed} avbrutna\n" +
-    "Snabbast ${bestMs?.let { seconds(it) + " s" } ?: "-"} · Senaste åket ${latestMs?.let { seconds(it) + " s" } ?: "Avbrutet"}" +
+fun SkierSummary.description() = "$total åk · $completed fullföljda · ${total - completed} DNF\n" +
+    "Snabbast ${bestMs?.let { seconds(it) + " s" } ?: "-"} · Senaste åket ${latestMs?.let { seconds(it) + " s" } ?: "DNF"}" +
     (progressMs?.let { "\n${difference(it)} jämfört med första fullföljda åket" } ?: "")
 
-fun reportParagraphs(rows: List<ReportRun>, includeTags: Boolean = false, includeNotes: Boolean = false): List<String> = buildList {
+internal const val PDF_GRAPH_PREFIX = "\u001eGRAPH:"
+data class PdfGraphPoint(val number: Int, val durationMs: Long?)
+fun pdfGraphPoints(paragraph: String): List<PdfGraphPoint> = paragraph.removePrefix(PDF_GRAPH_PREFIX).split(';').map {
+    val parts = it.split(':'); PdfGraphPoint(parts[0].toInt(), parts[1].takeUnless { value -> value == "x" }?.toLong())
+}
+fun reportParagraphs(rows: List<ReportRun>, includeTags: Boolean = false, includeNotes: Boolean = false, includeGraphs: Boolean = false): List<String> = buildList {
     add("# RaceLink Studio - Träningsrapport")
     add("SIMULATOR - Påhittade namn och tider")
     add("${rows.size} åk i ${rows.map { it.session.sessionId }.distinct().size} pass")
@@ -30,8 +35,11 @@ fun reportParagraphs(rows: List<ReportRun>, includeTags: Boolean = false, includ
             val summary = summarizeRuns(skierRows)
             add("## ${summary.name} - Nummer ${skierRows.first().athlete.bib}")
             add(summary.description())
+            if (includeGraphs) skierRows.chunked(16).forEach { chunk ->
+                add(PDF_GRAPH_PREFIX + chunk.joinToString(";") { "${it.number}:${if (it.attempt.complete) it.attempt.durationMs.toString() else "x"}" })
+            }
             skierRows.forEach { row ->
-                add("Åk ${row.number}: ${if (row.attempt.complete) seconds(row.attempt.durationMs!!) + " s" else "Avbrutet"}")
+                add("Åk ${row.number}: ${if (row.attempt.complete) seconds(row.attempt.durationMs!!) + " s" else "DNF"}")
                 if (includeTags) {
                     TagCategory.entries.forEach { category ->
                         val tags = session.tagDescription(row.attempt, category)
@@ -64,7 +72,7 @@ fun reportCsv(runs: List<ReportRun>): String {
         listOf("SIMULATOR", row.session.sessionId, row.session.sessionDate, row.session.sessionName,
             row.session.location, row.session.course, row.session.trainingType, row.session.team,
             row.athlete.bib.toString(), row.athlete.name, row.number.toString(), run.id,
-            if (run.complete) seconds(run.durationMs!!) else "", if (run.complete) "Fullföljt" else "Avbrutet")
+            if (run.complete) seconds(run.durationMs!!) else "", if (run.complete) "Fullföljt" else "DNF")
             .joinToString(";") { quote(it) }
     }
 }

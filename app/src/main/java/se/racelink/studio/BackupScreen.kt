@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 @Composable internal fun BackupDialog(vm: TrainingViewModel, close: () -> Unit) {
     val enabled = !vm.busy && !vm.backupBusy
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) vm.writeBackup(uri) else vm.backupToWrite = null
+        if (uri != null) vm.writeBackup(uri) else vm.cancelBackup()
     }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.inspectBackup(uri)
@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
         title = { Text("Säkerhetskopiera och återställ") }, text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Spara alla pass, åkare, taggar, anteckningar och ändringshistorik i en fil. Säkerhetskopian innehåller även privata coachningsanteckningar.")
+                BackupStatus(vm)
                 OutlinedButton(enabled = enabled && vm.state != null, onClick = {
                     vm.prepareBackup { save.launch("RaceLink-backup-${java.time.LocalDate.now()}.json") }
                 }) { Text("Spara säkerhetskopia") }
@@ -42,4 +43,11 @@ import androidx.compose.ui.unit.dp
                 }
             }
         }, confirmButton = { TextButton(enabled = enabled, onClick = { vm.cancelRestore(); close() }) { Text("Stäng") } })
+}
+
+@Composable internal fun BackupStatus(vm: TrainingViewModel) {
+    val state = vm.state
+    val fingerprint = remember(state) { state?.backupFingerprint() }
+    Text(backupFreshness(vm.backupReceipt, fingerprint), style = MaterialTheme.typography.bodySmall)
+    Text("Lokal återställningspunkt räknas inte som en extern säkerhetskopia.", style = MaterialTheme.typography.bodySmall)
 }

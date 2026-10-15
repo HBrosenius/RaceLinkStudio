@@ -1,6 +1,11 @@
 package se.racelink.studio
 
 data class ChartRun(val attempt: Attempt, val number: Int)
+fun adjacentSkier(athletes: List<Athlete>, selected: Int, direction: Int): Int {
+    val index = athletes.indexOfFirst { it.id == selected }
+    if (index < 0 || athletes.isEmpty()) return selected
+    return athletes[(index + direction.coerceIn(-1, 1)).coerceIn(0, athletes.lastIndex)].id
+}
 fun chartRuns(runs: List<Attempt>, taggedOnly: Boolean) = runs.mapIndexed { index, run -> ChartRun(run, index + 1) }
     .filter { !taggedOnly || it.attempt.tags.isNotEmpty() }
 data class ChartPoint(val x: Float, val y: Float)

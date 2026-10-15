@@ -3,7 +3,7 @@ package se.racelink.studio
 import java.util.Locale
 
 data class Athlete(val id: Int, val bib: Int, val name: String)
-enum class TagCategory(val label: String) { RUN("Beskriv åket"), NEXT_FOCUS("Fokus nästa åk") }
+enum class TagCategory(val label: String) { RUN("Beskriv åket"), NEXT_FOCUS("Fokus nästa åk"), CHANGE("Ändring") }
 data class CoachingTag(val id: Int, val name: String, val category: TagCategory = TagCategory.RUN)
 fun List<CoachingTag>.withFocusDefaults(): List<CoachingTag> {
     if (any { it.category == TagCategory.NEXT_FOCUS }) return this
@@ -11,12 +11,53 @@ fun List<CoachingTag>.withFocusDefaults(): List<CoachingTag> {
     return this + listOf("Blick framåt", "Tidigare kantbyte", "Lugn överkropp")
         .mapIndexed { index, name -> CoachingTag(maxId + index + 1, name, TagCategory.NEXT_FOCUS) }
 }
-fun Training.tagDescription(run: Attempt, category: TagCategory) = tags.filter { it.id in run.tags && it.category == category }.joinToString(" · ") { it.name }
+fun List<CoachingTag>.withChangeDefaults(): List<CoachingTag> {
+    if (any { it.category == TagCategory.CHANGE }) return this
+    val last = maxOfOrNull { it.id } ?: 0
+    return this + listOf("Portarna flyttade", "Ändrad bana", "Ändrat underlag", "Ändrad övning")
+        .mapIndexed { i, name -> CoachingTag(last + i + 1, name, TagCategory.CHANGE) }
+}
+fun Training.originalSequence(run: Attempt): Int = timingEvents.firstOrNull {
+    it.attemptId == run.id && it.decision in listOf(TimingDecision.ACCEPTED, TimingDecision.ASSIGNED)
+}?.observation?.sequence ?: run.sequence
+fun Training.changesFor(run: Attempt): List<Marker> = markers.filter { it.afterSequence < originalSequence(run) }
+fun Training.markerDescription(marker: Marker) = (listOf(marker.label).filter { it.isNotBlank() } +
+    tags.filter { it.id in marker.tags }.map { it.name }).joinToString(" · ")
+fun Training.tagDescription(run: Attempt, category: TagCategory): String =
+    if (category == TagCategory.CHANGE) changesFor(run).joinToString("; ") { markerDescription(it) }
+    else tags.filter { it.id in run.tags && it.category == category }.joinToString(" · ") { it.name }
+fun Training.recordChange(tagIds: Set<Int>, description: String): Training {
+    require(closedAt == null) { "Passet är avslutat" }
+    require(tagIds.isNotEmpty() || description.isNotBlank()) { "Välj taggar eller beskriv ändringen" }
+    require(tagIds.all { id -> tags.any { it.id == id && it.category == TagCategory.CHANGE } })
+    val marker = Marker(nextTimingSequence() - 1, description.trim(), tagIds)
+    return copy(markers = markers + marker, audit = audit + "${java.time.Instant.now()} · Ändring efter ${marker.afterSequence}: ${markerDescription(marker)}")
+}
+
+fun Training.editChange(index: Int, tagIds: Set<Int>, description: String): Training {
+    require(closedAt == null) { "Passet är avslutat" }
+    require(index in markers.indices) { "Ändringen finns inte" }
+    require(tagIds.isNotEmpty() || description.isNotBlank()) { "Välj taggar eller beskriv ändringen" }
+    require(tagIds.all { id -> tags.any { it.id == id && it.category == TagCategory.CHANGE } })
+    val old = markers[index]
+    val updated = old.copy(label = description.trim(), tags = tagIds)
+    return copy(markers = markers.mapIndexed { i, marker -> if (i == index) updated else marker },
+        audit = audit + "${java.time.Instant.now()} · Rättad ändring efter ${old.afterSequence}: ${markerDescription(old)} -> ${markerDescription(updated)}")
+}
+
+fun Training.removeChange(index: Int): Training {
+    require(closedAt == null) { "Passet är avslutat" }
+    require(index in markers.indices) { "Ändringen finns inte" }
+    val removed = markers[index]
+    return copy(markers = markers.filterIndexed { i, _ -> i != index },
+        audit = audit + "${java.time.Instant.now()} · Borttagen ändring efter ${removed.afterSequence}: ${markerDescription(removed)}")
+}
+
 data class Attempt(
     val id: String, val athleteId: Int, val sequence: Int, val durationMs: Long?,
     val complete: Boolean = true, val tags: Set<Int> = emptySet(), val note: String = ""
 )
-data class Marker(val afterSequence: Int, val label: String)
+data class Marker(val afterSequence: Int, val label: String, val tags: Set<Int> = emptySet())
 data class Training(
     val athletes: List<Athlete>, val attempts: List<Attempt>, val tags: List<CoachingTag>,
     val markers: List<Marker> = emptyList(), val audit: List<String> = emptyList(),
@@ -60,10 +101,14 @@ fun Training.simulateNext(adapter: TimingAdapter, incomplete: Boolean = false): 
     return ingest(adapter.next(sequence, athlete.bib, incomplete))
 }
 fun Training.toggleTag(runId: String, tagId: Int): Training {
-    require(tags.any { it.id == tagId })
+    require(tags.any { it.id == tagId && it.category != TagCategory.CHANGE })
     val run = attempts.single { it.id == runId }
     return correct(run.id, run.athleteId, run.complete,
         if (tagId in run.tags) run.tags - tagId else run.tags + tagId, run.note)
+}
+fun Training.setRunDnf(runId: String, dnf: Boolean): Training {
+    val run = attempts.single { it.id == runId }
+    return correct(run.id, run.athleteId, !dnf, run.tags, run.note)
 }
 fun List<Attempt>.eligible() = filter { it.complete && it.durationMs != null }
 fun List<Attempt>.previous(run: Attempt) = eligible().lastOrNull { it.sequence < run.sequence }
@@ -123,7 +168,7 @@ fun Training.correct(id: String, athleteId: Int, complete: Boolean, tags: Set<In
     val revised = old.copy(athleteId = athleteId, complete = complete, tags = tags, note = note.trim())
     if (old == revised) return this
     return copy(attempts = attempts.map { if (it.id == id) revised else it },
-        audit = audit + "${java.time.Instant.now()} | $id | $old -> $revised")
+        audit = audit + runEditRecord(old, revised))
 }
 fun demoTraining(): Training {
     val athletes = listOf(Athlete(1, 12, "Alma"), Athlete(2, 24, "Elias"), Athlete(3, 31, "Maja"), Athlete(4, 45, "Noah"))
@@ -133,5 +178,5 @@ fun demoTraining(): Training {
         Attempt("seed-$index", index % 4 + 1, index + 1, time.takeIf { it > 0 }, time > 0,
             if (index == 4) setOf(1) else emptySet())
     }, listOf("Teknikfokus", "Bra känsla", "Misstag", "Ändrade förhållanden", "Sen")
-        .mapIndexed { i, name -> CoachingTag(i + 1, name) }.withFocusDefaults(), listOf(Marker(8, "Portarna flyttade")))
+        .mapIndexed { i, name -> CoachingTag(i + 1, name) }.withFocusDefaults().withChangeDefaults(), listOf(Marker(8, "Portarna flyttade")))
 }

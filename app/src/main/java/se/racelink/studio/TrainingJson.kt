@@ -24,7 +24,7 @@ internal object TrainingJson {
         put("attempts", JSONArray(s.attempts.map { JSONObject().put("id", it.id).put("athlete", it.athleteId)
             .put("sequence", it.sequence).put("duration", it.durationMs ?: JSONObject.NULL).put("complete", it.complete)
             .put("tags", JSONArray(it.tags.toList())).put("note", it.note) }))
-        put("markers", JSONArray(s.markers.map { JSONObject().put("after", it.afterSequence).put("label", it.label) }))
+        put("markers", JSONArray(s.markers.map { JSONObject().put("after", it.afterSequence).put("label", it.label).put("tags", JSONArray(it.tags.toList())) }))
         put("audit", JSONArray(s.audit)); put("pending", JSONArray(s.pending))
     }
     fun decode(o: JSONObject, depth: Int = 0): Training {
@@ -36,8 +36,8 @@ internal object TrainingJson {
                 if (a.isNull("duration")) null else a.getLong("duration"), a.getBoolean("complete"),
                 a.getJSONArray("tags").let { t -> (0 until t.length()).map { t.getInt(it) }.toSet() }, a.getString("note")) },
             objects("tags").map { CoachingTag(it.getInt("id"), it.getString("name"), TagCategory.valueOf(it.optString("category", "RUN"))) }
-                .let { tags -> if (objects("tags").none { it.has("category") }) tags.withFocusDefaults() else tags },
-            objects("markers").map { Marker(it.getInt("after"), it.getString("label")) }, strings("audit"),
+                .let { tags -> if (objects("tags").none { it.has("category") }) tags.withFocusDefaults() else tags }.withChangeDefaults(),
+            objects("markers").map { Marker(it.getInt("after"), it.getString("label"), it.optJSONArray("tags")?.let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() } ?: emptySet()) }, strings("audit"),
             o.getString("team"), o.getBoolean("dark"), strings("pending"),
             o.optString("sessionId", "legacy-demo"),
             o.optString("sessionDate", java.time.LocalDate.now().toString()),

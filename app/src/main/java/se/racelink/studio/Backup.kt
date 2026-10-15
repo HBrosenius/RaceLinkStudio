@@ -23,7 +23,7 @@ internal fun readBackup(input: InputStream): Training {
 
 internal fun encodeBackup(state: Training): String {
     validateBackupState(state)
-    return JSONObject().put("format", "racelink-studio-demo").put("version", 4)
+    return JSONObject().put("format", "racelink-studio-demo").put("version", 5)
         .put("createdAt", Instant.now().toString()).put("state", TrainingJson.encode(state)).toString(2)
         .also { require(it.toByteArray(Charsets.UTF_8).size <= MAX_BACKUP_BYTES) { "Säkerhetskopian är för stor (max 16 MB)" } }
 }
@@ -44,11 +44,15 @@ internal fun decodeBackup(text: String): Training {
     val root = JSONObject(text)
     require(root.getString("format") == "racelink-studio-demo") { "Detta är inte en RaceLink-säkerhetskopia" }
     val version = root.getInt("version")
-    require(version in 1..4) { "Säkerhetskopians version stöds inte" }
+    require(version in 1..5) { "Säkerhetskopians version stöds inte" }
     val state = root.getJSONObject("state")
     val required = listOf("sessionId", "sessionDate", "sessionName", "location", "course", "trainingType", "roster", "participantIds", "archivedSessions")
     fun checkFields(o: JSONObject, archived: Boolean = false) {
         required.forEach { require(o.has(it) && !o.isNull(it)) { "Säkerhetskopian saknar $it" } }
+        if (version >= 5) {
+            val markers = o.getJSONArray("markers")
+            (0 until markers.length()).forEach { require(markers.getJSONObject(it).has("tags")) { "Ändringstaggar saknas" } }
+        }
         if (version >= 4) require(o.has("closedAt")) { "Passstatus saknas" }
         if (version >= 2) require(o.has("timingEvents") && !o.isNull("timingEvents")) { "Säkerhetskopian saknar ursprungliga tidshändelser" }
         if (version >= 3) {
@@ -98,7 +102,7 @@ internal fun validateBackupState(current: Training) {
             require((r.decision == TimingDecision.WAITING) == (r.decidedAt == null)) { "Granskningsbeslut saknar datum" }
             r.decidedAt?.let { Instant.parse(it) }
         }
-        val last = s.attempts.maxOfOrNull { it.sequence } ?: 0
-        require(s.markers.all { it.afterSequence in 0..last && it.label.isNotBlank() }) { "Ogiltig passmarkering" }
+        val last = s.nextTimingSequence() - 1
+        require(s.markers.all { it.afterSequence in 0..last && (it.label.isNotBlank() || it.tags.isNotEmpty()) && it.tags.all { id -> s.tags.any { tag -> tag.id == id && tag.category == TagCategory.CHANGE } } }) { "Ogiltig passmarkering" }
     }
 }

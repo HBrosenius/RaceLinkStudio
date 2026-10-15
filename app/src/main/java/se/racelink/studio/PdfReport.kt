@@ -52,6 +52,12 @@ internal fun createReportPdf(paragraphs: List<String>): ByteArray {
     }
     newPage()
     paragraphs.forEach { paragraph ->
+        if (paragraph.startsWith(PDF_GRAPH_PREFIX)) {
+            if (y + 200f > 790f) newPage()
+            drawPdfGraph(page!!.canvas, pdfGraphPoints(paragraph), y)
+            y += 200f
+            return@forEach
+        }
         val heading = paragraph.startsWith("# ") || paragraph.startsWith("## ")
         val fontSize = if (paragraph.startsWith("# ")) 17f else if (heading) 13f else 11f
         val text = paragraph.removePrefix("## ").removePrefix("# ")
@@ -80,51 +86,14 @@ internal fun createReportPdf(paragraphs: List<String>): ByteArray {
     } finally { doc.close() }
 }
 
-@Composable internal fun PdfExportButton(rows: List<ReportRun>, tags: Boolean, notes: Boolean) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var paragraphs by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
-    var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
-    var preview by remember { mutableStateOf(false) }
-    var saved by remember { mutableStateOf(false) }
-    val file = remember { File(context.cacheDir, "last-report.pdf") }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
-        if (uri != null) {
-            busy = true
-            scope.launch {
-                try {
-                    withContext(Dispatchers.IO) {
-                        val bytes = createReportPdf(paragraphs)
-                        requireNotNull(context.contentResolver.openOutputStream(uri)).use { it.write(bytes) }
-                        file.writeBytes(bytes)
-                    }
-                    saved = true
-                    message = "PDF sparad."
-                    preview = true
-                } catch (e: Exception) { message = "PDF kunde inte sparas: ${e.message}" }
-                finally { busy = false }
-            }
-        }
-    }
-    Column {
-        OutlinedButton(enabled = rows.isNotEmpty() && !busy, onClick = {
-            paragraphs = ArrayList(reportParagraphs(rows, tags, notes))
-            launcher.launch("RaceLink-rapport.pdf")
-        }) { Text(if (busy) "Sparar PDF…" else "Exportera PDF") }
-        message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-        if (saved) TextButton(onClick = { preview = true }) { Text("Visa sparad PDF") }
-    }
-    if (preview) PdfPreview(file) { preview = false }
-}
-
-@Composable private fun PdfPreview(file: File, close: () -> Unit) {
-    var index by remember { mutableIntStateOf(0) }
+@OptIn(ExperimentalLayoutApi::class)
+@Composable internal fun PdfPreview(file: File, close: () -> Unit) {
+    var index by rememberSaveable { mutableIntStateOf(0) }
     var count by remember { mutableIntStateOf(1) }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(index) {
-        bitmap = null
+    LaunchedEffect(file.path, index) {
+        bitmap = null; error = null
         try {
             val rendered = withContext(Dispatchers.IO) {
                 ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
@@ -141,11 +110,11 @@ internal fun createReportPdf(paragraphs: List<String>): ByteArray {
             bitmap = rendered.first; count = rendered.second
         } catch (e: Exception) { error = "Förhandsvisning misslyckades: ${e.message}" }
     }
-    Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    AppFullScreenDialog(close) {
         Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
             Column(Modifier.padding(16.dp)) {
-                Row {
-                    Text("PDF · Sida ${index + 1} av $count", Modifier.weight(1f))
+                FlowRow {
+                    Text("PDF · Sida ${index + 1} av $count")
                     TextButton(onClick = { index-- }, enabled = index > 0) { Text("Föregående") }
                     TextButton(onClick = { index++ }, enabled = index < count - 1) { Text("Nästa") }
                     TextButton(onClick = close) { Text("Stäng") }

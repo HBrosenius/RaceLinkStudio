@@ -4,6 +4,89 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TrainingTest {
+    @Test fun removingChangeClearsInheritedContextAndKeepsOtherChangesAndRuns() {
+        val original = demoTraining().copy(markers = emptyList()).recordChange(emptySet(), "Remove me")
+            .recordChange(emptySet(), "Keep me").selectNextAthlete(1).simulateNext(SimulatorAdapter())
+        val removed = original.removeChange(0)
+        assertEquals(original.attempts, removed.attempts)
+        assertEquals(listOf(original.markers[1]), removed.markers)
+        assertEquals("Keep me", removed.tagDescription(removed.attempts.last(), TagCategory.CHANGE))
+        assertTrue(removed.audit.last().contains("Remove me"))
+        assertEquals(removed, decodeBackup(encodeBackup(removed)))
+        assertTrue(runCatching { original.removeChange(9) }.isFailure)
+        assertTrue(runCatching { original.copy(closedAt = java.time.Instant.now().toString()).removeChange(0) }.isFailure)
+    }
+
+    @Test fun editingChangePreservesBoundaryAndUpdatesAffectedRuns() {
+        val initial = demoTraining().copy(markers = emptyList()).recordChange(emptySet(), "Old")
+        val later = initial.selectNextAthlete(1).simulateNext(SimulatorAdapter())
+        val selected = later.tags.filter { it.category == TagCategory.CHANGE }.take(2).map { it.id }.toSet()
+        val edited = later.editChange(0, selected, "Updated")
+        assertEquals(later.markers[0].afterSequence, edited.markers[0].afterSequence)
+        assertEquals(later.attempts, edited.attempts)
+        assertTrue(edited.changesFor(edited.attempts.first()).isEmpty())
+        assertTrue(edited.tagDescription(edited.attempts.last(), TagCategory.CHANGE).contains("Updated"))
+        assertEquals(selected, edited.markers[0].tags)
+        assertEquals(edited, decodeBackup(encodeBackup(edited)))
+        assertTrue(runCatching { later.editChange(0, emptySet(), " ") }.isFailure)
+        assertTrue(runCatching { later.copy(closedAt = java.time.Instant.now().toString()).editChange(0, selected, "No") }.isFailure)
+    }
+
+    @Test fun changeBoundaryUsesOriginalSequenceWhenReviewReassignsRunSequence() {
+        val s = demoTraining().copy(markers = emptyList()).recordChange(emptySet(), "Ny bana")
+        val run = s.attempts.first().copy(id = "late", sequence = 99)
+        val event = RecordedTiming("late-event", TimingObservation("late", 12, 1, run.durationMs, true), "Granskad",
+            TimingDecision.ASSIGNED, run.athleteId, run.id, java.time.Instant.now().toString())
+        val reviewed = s.copy(attempts = s.attempts + run, timingEvents = s.timingEvents + event)
+        assertTrue(reviewed.changesFor(run).isEmpty())
+    }
+    @Test fun changesApplyOnlyToSubsequentRunsAcrossAllSkiersAndSurviveBackup() {
+        val original = demoTraining().copy(markers = emptyList())
+        val ids = original.tags.filter { it.category == TagCategory.CHANGE }.take(2).map { it.id }.toSet()
+        val changed = original.recordChange(ids, "Ny kombination")
+        assertTrue(changed.attempts.all { changed.changesFor(it).isEmpty() })
+        val first = changed.selectNextAthlete(1).simulateNext(SimulatorAdapter())
+        val second = first.selectNextAthlete(2).simulateNext(SimulatorAdapter())
+        listOf(first.attempts.last(), second.attempts.last()).forEach {
+            assertTrue(second.tagDescription(it, TagCategory.CHANGE).contains("Ny kombination"))
+            assertEquals(ids, second.changesFor(it).single().tags)
+        }
+        assertEquals(second, decodeBackup(encodeBackup(second)))
+        val again = second.recordChange(emptySet(), "Ny snö").simulateNext(SimulatorAdapter())
+        assertEquals(2, again.changesFor(again.attempts.last()).size)
+        assertTrue(runCatching { original.recordChange(emptySet(), " ") }.isFailure)
+        assertTrue(runCatching { original.toggleTag(original.attempts.first().id, ids.first()) }.isFailure)
+        assertTrue(reportParagraphs(reportRuns(listOf(second)), includeTags = true).any { it.contains("Ny kombination") })
+    }
+
+    @Test fun dnfPreservesRecordedTimeButIsExcludedFromComparisonsSummariesAndGraphs() {
+        val s = demoTraining().selectNextAthlete(1).simulateNext(SimulatorAdapter())
+        val latest = s.runs(1).last()
+        val flagged = s.setRunDnf(latest.id, true)
+        assertEquals(latest.durationMs, flagged.runs(1).last().durationMs)
+        assertEquals(s.timingEvents, flagged.timingEvents)
+        assertFalse(flagged.runs(1).eligible().any { it.id == latest.id })
+        val summary = summarizeRuns(reportRuns(listOf(flagged), athleteId = 1))
+        assertNull(summary.latestMs)
+        assertEquals(s.runs(1).eligible().size - 1, summary.completed)
+        val graph = reportParagraphs(reportRuns(listOf(flagged), athleteId = 1), includeGraphs = true).first { it.startsWith(PDF_GRAPH_PREFIX) }
+        assertNull(pdfGraphPoints(graph).last().durationMs)
+        val next = flagged.simulateNext(SimulatorAdapter()).runs(1)
+        assertNotEquals(latest.id, next.previous(next.last())!!.id)
+        assertEquals(flagged, decodeBackup(encodeBackup(flagged)))
+        assertEquals(latest, flagged.setRunDnf(latest.id, false).runs(1).last())
+        val noFinish = s.attempts.first { it.durationMs == null }
+        assertTrue(runCatching { s.setRunDnf(noFinish.id, false) }.isFailure)
+    }
+    @Test fun chartSwipesGoLeftToPreviousAndRightBackWithoutWrapping() {
+        val skiers = demoTraining().athletes
+        assertEquals(1, adjacentSkier(skiers, 2, -1))
+        assertEquals(2, adjacentSkier(skiers, 1, 1))
+        assertEquals(1, adjacentSkier(skiers, 1, -1))
+        assertEquals(4, adjacentSkier(skiers, 4, 1))
+        assertEquals(99, adjacentSkier(skiers, 99, 1))
+        assertEquals(2, adjacentSkier(listOf(skiers[1]), 2, -1))
+    }
     @Test fun closingSessionPreservesEvidenceWithoutCreatingAnotherSession() {
         val s = demoTraining().selectNextAthlete(2).simulateNext(SimulatorAdapter())
         val closed = s.closeSession()
@@ -130,7 +213,7 @@ class TrainingTest {
         assertTrue(included.contains("Privat anteckning"))
         assertTrue(included.contains("Teknikfokus"))
         assertTrue(included.contains(s.sessionLabel()))
-        assertTrue(included.contains("Avbrutet"))
+        assertTrue(included.contains("DNF"))
     }
     @Test fun editActiveSessionPreservesEvidenceAndArchivesWhileChangingAttendance() {
         val old = demoTraining().copy(archivedSessions = listOf(demoTraining()), pending = listOf("seed-0"))
@@ -205,7 +288,7 @@ class TrainingTest {
         assertEquals(edited.runs(1).size + 1, output.split("\r\n").size)
         assertTrue(output.contains("\"report-session\";\"2026-10-13\""))
         assertTrue(output.contains("\"Alma\""))
-        assertTrue(output.contains("\"Avbrutet\""))
+        assertTrue(output.contains("\"DNF\""))
         assertFalse(output.contains("Elias"))
         assertFalse(output.contains("Private coaching note"))
         assertFalse(output.contains("Teknikfokus"))

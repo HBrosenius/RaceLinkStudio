@@ -8,6 +8,15 @@ import org.json.JSONObject
 
 // A transactional demo snapshot. Raw hardware journaling and Room migration are later work.
 class TrainingStore(context: Context) : SQLiteOpenHelper(context, "racelink-demo.db", null, 2) {
+    private val backupPreferences = context.getSharedPreferences("external-backup", Context.MODE_PRIVATE)
+    internal fun backupReceipt(): BackupReceipt? {
+        val time = backupPreferences.getString("time", null) ?: return null
+        val fingerprint = backupPreferences.getString("fingerprint", null) ?: return null
+        return BackupReceipt(time, fingerprint)
+    }
+    internal fun recordBackup(receipt: BackupReceipt) {
+        check(backupPreferences.edit().putString("time", receipt.time).putString("fingerprint", receipt.fingerprint).commit()) { "Kunde inte spara backupstatus" }
+    }
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE snapshot (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL)")
         db.execSQL("CREATE TABLE recovery (id INTEGER PRIMARY KEY CHECK(id=1), payload TEXT NOT NULL)")
