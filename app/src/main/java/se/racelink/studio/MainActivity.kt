@@ -18,8 +18,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
@@ -35,6 +39,17 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 class TrainingViewModel(app: Application) : AndroidViewModel(app) {
+    private val devicePreferences = app.getSharedPreferences("device-options", android.content.Context.MODE_PRIVATE)
+    private val resultSound = ResultSound(app)
+    var resultSoundEnabled by mutableStateOf(devicePreferences.getBoolean("result-sound", false)); private set
+    var soundMessage by mutableStateOf<String?>(null); private set
+    fun setResultSound(enabled: Boolean) {
+        if (devicePreferences.edit().putBoolean("result-sound", enabled).commit()) {
+            resultSoundEnabled = enabled; soundMessage = null
+            if (!enabled) resultSound.close()
+        } else soundMessage = "Ljudinställningen kunde inte sparas."
+    }
+    fun previewResultSound() { soundMessage = if (resultSound.play()) "Provljud spelades." else "Inget ljud spelades. Kontrollera enhetens ljudläge, aviseringsvolym och Stör ej." }
     private val store = TrainingStore(app)
     val adapter: TimingAdapter = SimulatorAdapter()
     var state by mutableStateOf<Training?>(null); private set
@@ -146,6 +161,7 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
             val result = commitTraining(current, transform) { next -> withContext(Dispatchers.IO) { store.save(next) } }
             result.fold(onSuccess = { next ->
                 state = next; error = null
+                if (resultSoundEnabled && hasNewCompletedResult(current, next)) resultSound.play()
                 if (next.sessionId != current.sessionId || next.closedAt != null) undoEdit = null
                 onCommitted()
             }, onFailure = { error = "Ändringen sparades inte: ${it.message}" })
@@ -170,7 +186,7 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun dismissUndo() { undoEdit = null }
     fun simulate(incomplete: Boolean = false) = update { it.simulateNext(adapter, incomplete) }
-    override fun onCleared() { store.close() }
+    override fun onCleared() { resultSound.close(); store.close() }
 }
 
 class MainActivity : ComponentActivity() {
@@ -198,6 +214,7 @@ private val Blue = Color(0xFF3266D5)
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable private fun Dashboard(s: Training, vm: TrainingViewModel) {
     var handoff by rememberSaveable(s.sessionId) { mutableStateOf(false) }
     var rosterOpen by rememberSaveable { mutableStateOf(false) }
@@ -273,11 +290,13 @@ private val Blue = Color(0xFF3266D5)
     StudioNavigation(destination, { target -> guardNote { destination = target } }) {
     if (destination == "current") {
     Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        FlowRow(Modifier.fillMaxWidth(), maxItemsInEachRow = if (LocalConfiguration.current.screenWidthDp < 600 || LocalDensity.current.fontScale >= 1.5f) 1 else 2,
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Column(Modifier.weight(1f)) {
                 Text(s.sessionName, style = MaterialTheme.typography.titleLarge)
                 Text("${s.sessionDate} · ${if (s.closedAt == null) "Pågår" else "Avslutat · skrivskyddat"} · Simulator", style = MaterialTheme.typography.bodySmall)
             }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(onClick = { sessionDetails = !sessionDetails }) { Text(if (sessionDetails) "Dölj detaljer" else "Passinfo") }
             Box {
                 OutlinedButton(onClick = { menu = true }) { Text("Passåtgärder") }
@@ -293,10 +312,11 @@ private val Blue = Color(0xFF3266D5)
                     DropdownMenuItem(text = { Text("Markera ändring") }, enabled = !vm.busy && s.closedAt == null, onClick = { changeDialog = true; menu = false })
                 }
             }
+            }
         }
         if (sessionDetails) Text("${s.team} · ${s.sessionDetails().ifBlank { "Inga fler passuppgifter" }}\nSimulator · ingen timer är ansluten", style = MaterialTheme.typography.bodySmall)
         if (s.closedAt != null) OutlinedButton(onClick = { handoff = true }) { Text("Passammanfattning · rapport och säkerhetskopia") }
-        if (vm.error != null) Text(vm.error!!, color = MaterialTheme.colorScheme.error)
+        if (vm.error != null) Text(vm.error!!, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.error)
         vm.undoEdit?.takeIf { it.showNotice }?.let { undo ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(undo.label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
@@ -310,7 +330,7 @@ private val Blue = Color(0xFF3266D5)
             val arrived = s.nextPendingRun()
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${s.pending.size} nya resultat · ${s.athletes.firstOrNull { it.id == arrived?.athleteId }?.name.orEmpty()} · ${if (arrived?.complete == true) seconds(arrived.durationMs!!) + " s" else "DNF"}", Modifier.weight(1f))
+                    Text("${s.pending.size} nya resultat · ${s.athletes.firstOrNull { it.id == arrived?.athleteId }?.name.orEmpty()} · ${if (arrived?.complete == true) seconds(arrived.durationMs!!) + " s" else "DNF · ej fullföljt"}", Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite })
                     TextButton(onClick = {
                         val first = s.nextPendingRun()
                         if (first != null) vm.update(onCommitted = { vm.queuedRunCommitted(first.id) }) { it.acknowledgePending(first.id) }

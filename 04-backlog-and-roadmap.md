@@ -6,6 +6,10 @@ Android standalone baseline. P0 is required for trustworthy training; conditiona
 
 The debug APK builds and six domain tests pass. Initial slices of B03/B04/B07/B08/B09/B18/B19 are available: domain model, deterministic adapter, Swedish dashboard, personal charts, correction audit, local save, CSV, tags, team name and course markers. Real-device lifecycle validation, robust evidence journaling, roster/session management, full reports, backup/restore, logo import and notification sound remain outstanding. B02 and production reliability gates are not yet complete. See IMPLEMENTATION.md for details.
 
+## Current implementation status — 15 October 2026
+
+The earlier progress paragraph is historical. The native demo now includes session/roster management and archived snapshots, correction history, review, multi-session/date/skier PDF/CSV reports with graphs, individual PNG reports, optional device-local logos, explicit Android sharing, backup/restore with freshness, optional device-local result sound and validated roster CSV import. Sound is off by default; report tags/notes remain opt-in. Import previews conflicts and adds identities without changing current attendance or historical runs. Build and 81 tests pass. A physical tablet coaching rehearsal and separate emulator import/export/accessibility checks are recorded in 06-ui-cleanup-and-feature-plan.md. B02/B05/B10 production reliability and B12/B13 timer/field gates remain open; these delivered simulator features do not establish field readiness.
+
 ## Backlog
 
 | ID | Priority | Deliverable | Depends on | Acceptance |
@@ -52,4 +56,4 @@ Hardware research may start earlier when equipment arrives but cannot bypass rel
 
 ## Superseded work
 
-Windows service packaging, LAN HTTPS certificate onboarding for the operator, React PWA operator caching, Windows auto-start and server-authorized operator leases are removed from this roadmap. React/browser technology may be considered separately for optional viewers. Native Android toolkit choice remains a proposal to validate, not completed implementation.
+Windows service packaging, LAN HTTPS certificate onboarding for the operator, React PWA operator caching, Windows auto-start and server-authorized operator leases are removed from this roadmap. React/browser technology may be considered separately for optional viewers. The native Android demo is implemented; production lifecycle and hardware validation remain open.

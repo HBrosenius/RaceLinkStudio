@@ -4,6 +4,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -23,6 +27,11 @@ internal val TagListSaver = Saver<List<CoachingTag>, String>(
 }
 
 @Composable internal fun SaveFeedback(enabled: Boolean, error: String?) {
-    if (!enabled) Text("Sparar…")
-    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    if (!enabled) Text("Sparar…", Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    error?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.error) }
+}
+
+@Composable internal fun StatusMessage(message: String?, isError: Boolean = false) {
+    message?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) }
 }

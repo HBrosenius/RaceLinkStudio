@@ -120,6 +120,13 @@ private val destinations = listOf("current" to "Aktuellt pass", "sessions" to "T
         BackupStatus(vm)
         OutlinedButton(onClick = { vm.backupOpen = true }) { Text("Säkerhetskopiera och återställ") }
         HorizontalDivider()
+        Text("Resultatljud", style = MaterialTheme.typography.titleMedium)
+        Text("Av som standard. Kort ljud efter ett nytt sparat, fullföljt resultat. Upprepade resultat och rättningar ger inget ljud. Följer enhetens ljudläge, aviseringsvolym och Stör ej.")
+        FilterChip(selected = vm.resultSoundEnabled, onClick = { vm.setResultSound(!vm.resultSoundEnabled) }, label = { Text(if (vm.resultSoundEnabled) "Ljud på · tryck för att tysta" else "Ljud av · tryck för att aktivera") })
+        OutlinedButton(onClick = vm::previewResultSound) { Text("Prova resultatljud") }
+        StatusMessage(vm.soundMessage)
+        ReportBrandingSettings()
+        HorizontalDivider()
         Text("Demoverktyg", style = MaterialTheme.typography.titleMedium)
         Text("Simulator · ingen timer är ansluten. Simulerade resultat sparas i aktuellt pass.")
         OutlinedButton(onClick = simulator, enabled = s.closedAt == null) { Text("Öppna simulator") }

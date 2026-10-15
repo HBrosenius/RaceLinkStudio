@@ -53,10 +53,12 @@ internal fun Training.templateFrom(source: Training): SessionTemplate {
     var query by rememberSaveable { mutableStateOf("") }
     var archived by rememberSaveable { mutableStateOf(false) }
     var confirmId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var importing by rememberSaveable { mutableStateOf(false) }
     AppFullScreenDialog(close) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Lagets åkarlista", style = MaterialTheme.typography.headlineSmall)
+                OutlinedButton(enabled = !vm.busy && !vm.backupBusy, onClick = { importing = true }) { Text("Importera CSV") }
                 OutlinedTextField(query, { query = it }, label = { Text("Sök namn eller nummer") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = !archived, onClick = { archived = false }, label = { Text("Aktiva (${s.roster.size - s.archivedRosterIds.size})") })
@@ -82,6 +84,7 @@ internal fun Training.templateFrom(source: Training): SessionTemplate {
             }
         }
     }
+    if (importing) RosterImportDialog(s, vm, { importing = false })
     confirmId?.let { id -> s.roster.find { it.id == id }?.let { skier ->
         val wasArchived = id in s.archivedRosterIds
         AlertDialog(onDismissRequest = { if (!vm.busy) confirmId = null }, title = { Text("${if (wasArchived) "Återaktivera" else "Arkivera"} ${skier.name}?") }, text = {

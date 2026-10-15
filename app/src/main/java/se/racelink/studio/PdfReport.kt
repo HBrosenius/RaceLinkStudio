@@ -26,7 +26,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 // A4 pages in PDF points, with measured wrapping and page breaks for long notes/names.
-internal fun createReportPdf(paragraphs: List<String>): ByteArray {
+internal fun createReportPdf(paragraphs: List<String>, logo: Bitmap? = null): ByteArray {
     val doc = PdfDocument()
     try {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -42,9 +42,14 @@ internal fun createReportPdf(paragraphs: List<String>): ByteArray {
         page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, number).create())
         paint.textSize = 9f; paint.isFakeBoldText = false; paint.color = Color.DKGRAY
         page!!.canvas.drawText("RaceLink Studio | SIMULATOR", 40f, 28f, paint)
+        logo?.let { image ->
+            val scale = minOf(55f / image.width, 30f / image.height)
+            val width = image.width * scale; val height = image.height * scale
+            page!!.canvas.drawBitmap(image, null, android.graphics.RectF(555f - width, 12f, 555f, 12f + height), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+        }
         val continuation = listOf(sessionHeading, skierHeading).filter { it.isNotBlank() }.joinToString(" | ")
         if (continuation.isNotBlank()) {
-            val length = paint.breakText(continuation, true, 515f, null)
+            val length = paint.breakText(continuation, true, if (logo == null) 515f else 450f, null)
             page!!.canvas.drawText(continuation.take(length), 40f, 43f, paint)
         }
         page!!.canvas.drawText("Sida $number", 500f, 818f, paint)

@@ -9,10 +9,13 @@ import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable internal fun ChartModeSelector(improvement: Boolean, select: (Boolean) -> Unit) {
-    SingleChoiceSegmentedButtonRow(Modifier.width(if (LocalDensity.current.fontScale >= 1.5f) 320.dp else 224.dp).heightIn(min = 48.dp)) {
-        listOf("Tider", "Förändring").forEachIndexed { index, label ->
-            SegmentedButton(selected = improvement == (index == 1), onClick = { select(index == 1) },
-                shape = SegmentedButtonDefaults.itemShape(index, 2)) { Text(label) }
+    val preferredWidth = if (LocalDensity.current.fontScale >= 1.5f) 320.dp else 224.dp
+    BoxWithConstraints(Modifier.widthIn(max = preferredWidth)) {
+        SingleChoiceSegmentedButtonRow(Modifier.width(maxWidth).heightIn(min = 48.dp)) {
+            listOf("Tider", "Förändring").forEachIndexed { index, label ->
+                SegmentedButton(selected = improvement == (index == 1), onClick = { select(index == 1) },
+                    shape = SegmentedButtonDefaults.itemShape(index, 2)) { Text(label) }
+            }
         }
     }
 }
