@@ -21,6 +21,9 @@ import androidx.compose.ui.window.DialogProperties
         return
     }
     var scopedReports by rememberSaveable { mutableStateOf(false) }
+    var sessionQuery by rememberSaveable { mutableStateOf("") }
+    var skierQuery by rememberSaveable { mutableStateOf("") }
+    var pickSkier by rememberSaveable { mutableStateOf(false) }
     val exportVm: ReportExportViewModel = viewModel(key = "session-export")
     var exporting by rememberSaveable { mutableStateOf(false) }
     var sessionId by rememberSaveable { mutableStateOf<String?>(if (reports) current.sessionId else null) }
@@ -50,9 +53,12 @@ import androidx.compose.ui.window.DialogProperties
                     TextButton(onClick = close) { Text("Till aktuellt pass") }
                 }
                 if (session == null) {
+                    OutlinedTextField(sessionQuery, { sessionQuery = it }, label = { Text("Sök pass, datum eller plats") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (current.archivedSessions.isEmpty()) Text("Inga tidigare pass ännu. Välj Passåtgärder → Starta träningspass när träningen är klar.")
-                        sessions.forEach { item ->
+                        val matches = sessions.filter { "${it.sessionLabel()} ${it.sessionDetails()}".contains(sessionQuery.trim(), ignoreCase = true) }
+                        if (matches.isEmpty()) Text("Inga pass matchar sökningen.")
+                        matches.forEach { item ->
                             Card(onClick = { sessionId = item.sessionId; athleteId = null }) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
                                     Text("${item.sessionLabel()} · ${if (item.sessionId == current.sessionId && item.closedAt == null) "Aktuellt pass" else "Sparat pass"}", style = MaterialTheme.typography.titleMedium)
@@ -96,17 +102,17 @@ import androidx.compose.ui.window.DialogProperties
                             } }
                         }
                     } else if (athlete != null) {
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            session.athletes.forEach { item -> FilterChip(selected = item.id == athlete.id,
-                                onClick = { athleteId = item.id }, label = { Text(item.name) }) }
-                        }
+                        OutlinedButton(onClick = { pickSkier = true }) { Text("Visar ${athlete.bib} · ${athlete.name} · byt åkare") }
                         val runs = session.runs(athlete.id)
                         RunDashboard(session, athlete, runs, runs.lastOrNull(), runs.eligible(), improvement,
                             { improvement = it }, {}, Modifier.weight(1f).fillMaxWidth(), readOnly = true)
                     } else {
                         Text("Rapport per åkare", style = MaterialTheme.typography.titleLarge)
+                        OutlinedTextField(skierQuery, { skierQuery = it }, label = { Text("Sök namn eller nummer") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            session.athletes.forEach { item ->
+                            val matches = findSkiers(session.athletes, skierQuery)
+                            if (matches.isEmpty()) Text("Inga åkare matchar sökningen.")
+                            matches.forEach { item ->
                                 val runs = session.runs(item.id)
                                 val valid = runs.eligible()
                                 Card(onClick = { athleteId = item.id }) {
@@ -128,5 +134,6 @@ import androidx.compose.ui.window.DialogProperties
         }
     }
     if (exporting) ReportExportDialog(exportVm, { exporting = false }, initialFormat = "CSV")
+    if (pickSkier && session != null) SkierPicker(session.athletes, athleteId ?: -1, { pickSkier = false }) { athleteId = it }
 
 }

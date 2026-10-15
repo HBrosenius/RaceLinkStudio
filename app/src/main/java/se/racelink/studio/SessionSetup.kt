@@ -22,16 +22,21 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
     restore = { text -> JSONArray(text).let { a -> (0 until a.length()).map { i -> a.getJSONObject(i).let { SkierDraft(it.getInt("id"), it.getString("name"), it.getString("bib")) } } } })
 
 @OptIn(ExperimentalLayoutApi::class)
-@Composable internal fun SessionSetup(current: Training, enabled: Boolean, close: () -> Unit, editing: Boolean = false, error: String? = null, start: (Training) -> Unit) {
+@Composable internal fun SessionSetup(current: Training, enabled: Boolean, close: () -> Unit, editing: Boolean = false, error: String? = null,
+    initialSection: String = "details", start: (Training) -> Unit) {
     var name by rememberSaveable { mutableStateOf(if (editing) current.sessionName else "") }
     var date by rememberSaveable { mutableStateOf(if (editing) current.sessionDate else java.time.LocalDate.now().toString()) }
     var location by rememberSaveable { mutableStateOf(current.location) }
     var course by rememberSaveable { mutableStateOf(if (editing) current.course else "") }
     var type by rememberSaveable { mutableStateOf(current.trainingType) }
     var roster by rememberSaveable(stateSaver = RosterDraftSaver) { mutableStateOf(current.roster.map { SkierDraft(it.id, it.name, it.bib.toString()) }) }
-    var selected by rememberSaveable(stateSaver = IdSetSaver) { mutableStateOf(current.participantIds) }
+    val initialParticipants = if (editing) current.participantIds else current.participantIds - current.archivedRosterIds
+    var selected by rememberSaveable(stateSaver = IdSetSaver) { mutableStateOf(initialParticipants) }
+    var showArchived by rememberSaveable { mutableStateOf(false) }
+    var templatePicker by rememberSaveable { mutableStateOf(false) }
+    var templateId by rememberSaveable { mutableStateOf<String?>(null) }
     val validDate = runCatching { java.time.LocalDate.parse(date) }.isSuccess
-    var section by rememberSaveable { mutableStateOf("details") }
+    var section by rememberSaveable { mutableStateOf(initialSection) }
     var query by rememberSaveable { mutableStateOf("") }
     var editingSkier by rememberSaveable { mutableStateOf<Int?>(null) }
     var addingSkier by rememberSaveable { mutableStateOf(false) }
@@ -40,7 +45,7 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
     val valid = name.isNotBlank() && validDate && validRoster && selected.isNotEmpty()
     val dirty = name != (if (editing) current.sessionName else "") || date != (if (editing) current.sessionDate else java.time.LocalDate.now().toString()) ||
         location != current.location || course != (if (editing) current.course else "") || type != current.trainingType ||
-        roster != current.roster.map { SkierDraft(it.id, it.name, it.bib.toString()) } || selected != current.participantIds
+        roster != current.roster.map { SkierDraft(it.id, it.name, it.bib.toString()) } || selected != initialParticipants
     val leave = draftClose(dirty, enabled, close)
     AppFullScreenDialog(leave) {
         Surface(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), color = MaterialTheme.colorScheme.background) {
@@ -53,6 +58,7 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (section == "details") {
                         Text(if (editing) "Befintliga åk behålls. Ändringarna gäller aktuellt pass." else "Det aktuella passet sparas i historiken. Det nya passet börjar utan resultat eller ändringsmarkeringar.", style = MaterialTheme.typography.bodySmall)
+                        if (!editing) OutlinedButton(enabled = enabled, onClick = { templatePicker = true }) { Text("Hämta upplägg från pass") }
                         OutlinedTextField(name, { name = it }, enabled = enabled, label = { Text("Passnamn *") }, isError = name.isBlank(),
                             supportingText = { Text(if (name.isBlank()) "Ange ett passnamn" else "Obligatoriskt") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                         DateInput(date, { date = it }, "Datum *", enabled)
@@ -64,11 +70,12 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
                         Text("Åkarlistan återanvänds i kommande pass. Sparade pass behåller sina åkarnamn och nummer.", style = MaterialTheme.typography.bodySmall)
                         OutlinedTextField(query, { query = it }, enabled = enabled, label = { Text("Sök namn eller nummer") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(enabled = enabled, onClick = { selected = roster.map { it.id }.toSet() }) { Text("Välj alla") }
+                            TextButton(enabled = enabled, onClick = { selected = roster.filter { it.id !in current.archivedRosterIds }.map { it.id }.toSet() }) { Text("Välj alla aktiva") }
                             TextButton(enabled = enabled, onClick = { selected = emptySet() }) { Text("Avmarkera alla") }
                             OutlinedButton(enabled = enabled, onClick = { addingSkier = true }) { Text("Lägg till åkare") }
                         }
-                        val matches = roster.filter { query.isBlank() || it.name.contains(query.trim(), true) || it.bib.contains(query.trim()) }
+                        FilterChip(selected = showArchived, onClick = { showArchived = !showArchived }, label = { Text("Visa även arkiverade") })
+                        val matches = roster.filter { (showArchived || it.id !in current.archivedRosterIds || it.id in selected) && (query.isBlank() || it.name.contains(query.trim(), true) || it.bib.contains(query.trim())) }
                         if (matches.isEmpty()) Text("Inga åkare matchar sökningen.")
                         matches.forEach { skier ->
                             val errors = skierErrors(skier, roster)
@@ -78,6 +85,7 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
                                         Checkbox(checked = skier.id in selected, enabled = enabled, onCheckedChange = { checked -> selected = if (checked) selected + skier.id else selected - skier.id })
                                         Column(Modifier.weight(1f)) {
                                             Text("${skier.bib} · ${skier.name.ifBlank { "Namn saknas" }}", style = MaterialTheme.typography.titleMedium)
+                                            if (skier.id in current.archivedRosterIds) Text("Arkiverad i lagets lista", style = MaterialTheme.typography.bodySmall)
                                             if (!errors.valid) Text(listOfNotNull(errors.name, errors.bib).joinToString(" · "), color = MaterialTheme.colorScheme.error)
                                         }
                                         TextButton(enabled = enabled, onClick = { editingSkier = skier.id }) { Text("Redigera") }
@@ -111,6 +119,16 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
         }
     }
     val editDraft = if (addingSkier) SkierDraft((roster.maxOfOrNull { it.id } ?: 0) + 1, "", "") else roster.firstOrNull { it.id == editingSkier }
+    if (templatePicker) SessionTemplatePicker(listOf(current) + current.archivedSessions, { templatePicker = false }) { templateId = it; templatePicker = false }
+    templateId?.let { id -> (listOf(current) + current.archivedSessions).find { it.sessionId == id }?.let { source ->
+        val template = current.templateFrom(source)
+        AlertDialog(onDismissRequest = { templateId = null }, title = { Text("Använd upplägget från ${source.sessionLabel()}?") }, text = {
+            Text("Ersätter utkastets passnamn, plats, bana, träningstyp och deltagare. Datumet och lagets nuvarande namn/nummer behålls. ${template.participants.size} deltagare tas med; ${template.omitted} arkiverade eller saknade åkare utelämnas. Inga åk, tider eller ändringsmarkeringar kopieras.")
+        }, confirmButton = { TextButton(enabled = enabled, onClick = {
+            name = template.name; location = template.location; course = template.course; type = template.type; selected = template.participants
+            templateId = null
+        }) { Text("Använd upplägg") } }, dismissButton = { TextButton(onClick = { templateId = null }) { Text("Avbryt") } })
+    } }
     editDraft?.let { draft ->
         SkierDraftDialog(draft, roster, enabled, { editingSkier = null; addingSkier = false }) { updated ->
             if (addingSkier) { roster = roster + updated; selected = selected + updated.id }
@@ -126,7 +144,7 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
     val draft = original.copy(name = name, bib = bib)
     val errors = skierErrors(draft, roster)
     val leave = draftClose(draft != original, enabled, close)
-    AlertDialog(onDismissRequest = leave, title = { Text(if (original.name.isBlank()) "Lägg till åkare" else "Redigera åkare") }, text = {
+    EditorDialog(onDismissRequest = leave, title = { Text(if (original.name.isBlank()) "Lägg till åkare" else "Redigera åkare", style = MaterialTheme.typography.headlineSmall) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             OutlinedTextField(name, { name = it }, enabled = enabled, label = { Text("Namn") }, singleLine = true,
                 isError = errors.name != null, supportingText = { errors.name?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())

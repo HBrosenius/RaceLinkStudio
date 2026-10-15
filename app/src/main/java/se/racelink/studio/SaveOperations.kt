@@ -12,10 +12,10 @@ fun Training.acknowledgePending(id: String): Training {
     return copy(pending = pending.drop(1))
 }
 
-internal data class UndoEdit(val label: String, val apply: (Training) -> Training)
+internal data class UndoEdit(val label: String, val showNotice: Boolean = true, val apply: (Training) -> Training)
 internal fun quickTagUndo(before: Training, runId: String, tagId: Int): UndoEdit {
     val hadTag = tagId in before.attempts.single { it.id == runId }.tags
-    return UndoEdit("Tagg ändrad") { current ->
+    return UndoEdit("Tagg ändrad", showNotice = false) { current ->
         require(current.sessionId == before.sessionId) { "Passet har ändrats" }
         val run = current.attempts.single { it.id == runId }
         require((tagId in run.tags) != hadTag) { "Taggen har redan ändrats igen" }

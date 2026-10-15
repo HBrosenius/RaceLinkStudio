@@ -72,7 +72,8 @@ data class Training(
     val participantIds: Set<Int> = athletes.map { it.id }.toSet(),
     val nextAthleteId: Int? = null,
     val timingEvents: List<RecordedTiming> = emptyList(),
-    val closedAt: String? = null
+    val closedAt: String? = null,
+    val archivedRosterIds: Set<Int> = emptySet()
 )
 data class TimingObservation(val id: String, val bib: Int, val sequence: Int, val durationMs: Long?, val complete: Boolean)
 interface TimingAdapter {
@@ -130,7 +131,7 @@ fun Training.closeSession(): Training {
 fun Training.startNewSession(
     name: String = "Träningspass", date: String = java.time.LocalDate.now().toString(),
     location: String = "", course: String = "", trainingType: String = "",
-    roster: List<Athlete> = this.roster, participants: Set<Int> = participantIds
+    roster: List<Athlete> = this.roster, participants: Set<Int> = participantIds - archivedRosterIds
 ): Training {
     require(reviewQueue().isEmpty()) { "Granska väntande resultat innan ett nytt pass startas" }
     require(name.isNotBlank()) { "Ange ett passnamn" }
@@ -140,6 +141,7 @@ fun Training.startNewSession(
     require(participants.isNotEmpty() && participants.all { id -> roster.any { it.id == id } }) { "Välj minst en åkare" }
     return copy(
         athletes = roster.filter { it.id in participants }, roster = roster, participantIds = participants, nextAthleteId = null,
+        archivedRosterIds = archivedRosterIds.intersect(roster.map { it.id }.toSet()),
         sessionName = name.trim(), sessionDate = date, location = location.trim(), course = course.trim(), trainingType = trainingType.trim(),
         attempts = emptyList(), markers = emptyList(), audit = emptyList(), pending = emptyList(), timingEvents = emptyList(),
         sessionId = java.util.UUID.randomUUID().toString(), closedAt = null,

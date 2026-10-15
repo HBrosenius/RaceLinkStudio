@@ -2,6 +2,7 @@ package se.racelink.studio
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
@@ -35,9 +37,12 @@ import java.util.Locale
 @OptIn(ExperimentalLayoutApi::class)
 @Composable internal fun TrendChart(runs: List<Attempt>, markers: List<Marker>, improvement: Boolean,
     tags: List<CoachingTag> = emptyList(), taggedOnly: Boolean = false, onRunClick: ((String) -> Unit)? = null,
-    onSkierSwipe: ((Int) -> Unit)? = null, changeLabels: Map<String, String> = emptyMap(), runSequences: Map<String, Int> = emptyMap(), onChangeClick: ((Marker) -> Unit)? = null) {
+    onSkierSwipe: ((Int) -> Unit)? = null, changeLabels: Map<String, String> = emptyMap(), runSequences: Map<String, Int> = emptyMap(), onChangeClick: ((Marker) -> Unit)? = null,
+    highlightedRunId: String? = null, toolbar: (@Composable () -> Unit)? = null,
+    setTaggedOnly: ((Boolean) -> Unit)? = null, previousSkierEnabled: Boolean = true, nextSkierEnabled: Boolean = true) {
     var zoom by rememberSaveable { mutableFloatStateOf(1f) }
     var pan by rememberSaveable { mutableFloatStateOf(0f) }
+    var showTags by rememberSaveable { mutableStateOf(false) }
     BoxWithConstraints(Modifier.clipToBounds()) {
     val viewportWidth = maxWidth
     val viewportPx = with(LocalDensity.current) { maxWidth.toPx() }
@@ -88,11 +93,10 @@ import java.util.Locale
     fun markerLabel(marker: Marker) = (listOf(marker.label).filter { it.isNotBlank() } +
         tags.filter { it.id in marker.tags }.map { it.name }).joinToString(" · ")
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
-    var controls by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(highlightedRunId) { if (highlightedRunId != null) selectedId = highlightedRunId }
+    var options by remember { mutableStateOf(false) }
     var chooseRun by remember { mutableStateOf(false) }
     var changeGroup by remember { mutableStateOf<List<Marker>?>(null) }
-    val selectedRun = shown.firstOrNull { it.attempt.id == selectedId } ?: shown.lastOrNull()
-    val selectedIndex = shown.indexOf(selectedRun)
     fun scaleTo(nextScale: Float) {
         val next = nextScale.coerceIn(1f, maxOf(8f, runs.size / 4f))
         pan = boundedPan((viewportPx / 2 - leftInset) - (viewportPx / 2 - leftInset - boundedPan(pan, zoom)) * next / zoom, next)
@@ -118,20 +122,50 @@ import java.util.Locale
         return values.mapIndexed { i, value -> ChartPoint(xAt((i + .5f) / shown.size.coerceAtLeast(1), width),
             if (value == null) height - with(density) { 8.dp.toPx() } else bottom - (value - low) / (high - low) * (bottom - top)) }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (visible.isEmpty()) Text("Inga åk att visa i diagrammet.") else {
-            if (controls) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(enabled = zoom > 1f, onClick = { scaleTo(zoom / 1.5f) }) { Text("− Zooma ut") }
-                TextButton(enabled = zoom < maxOf(8f, runs.size / 4f), onClick = { scaleTo(zoom * 1.5f) }) { Text("+ Zooma in") }
-                TextButton(enabled = zoom > 1f, onClick = { zoom = 1f; pan = 0f }) { Text("Visa alla") }
-                if (zoom > 1f) {
-                    TextButton(enabled = boundedPan(pan, zoom) < 0f, onClick = { pan = boundedPan(pan + viewportPx / 2, zoom) }) { Text("← Tidigare åk") }
-                    TextButton(enabled = boundedPan(pan, zoom) > -plotWidth(viewportPx) * (zoom - 1f), onClick = { pan = boundedPan(pan - viewportPx / 2, zoom) }) { Text("Senare åk →") }
+    @Composable fun ChartToolbar() {
+        Surface(color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                toolbar?.invoke()
+                Row(Modifier.heightIn(min = 48.dp).toggleable(value = showTags, role = Role.Switch, onValueChange = { showTags = it }), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Visa taggar", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.width(8.dp))
+                    Switch(checked = showTags, onCheckedChange = null)
+                }
+                }
+                Box {
+                    IconButton(onClick = { options = true }, modifier = Modifier.semantics { contentDescription = "Diagramval" }) { Text("⋮", fontSize = 24.sp) }
+                    DropdownMenu(expanded = options, onDismissRequest = { options = false }) {
+                        if (setTaggedOnly != null) DropdownMenuItem(text = { Text("Bara taggade åk") },
+                            trailingIcon = { Checkbox(checked = taggedOnly, onCheckedChange = null) },
+                            onClick = { setTaggedOnly(!taggedOnly); options = false })
+                        DropdownMenuItem(text = { Text("Välj åk") }, enabled = shown.isNotEmpty(), onClick = { options = false; chooseRun = true })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("Zooma in") }, enabled = zoom < maxOf(8f, runs.size / 4f), onClick = { scaleTo(zoom * 1.5f); options = false })
+                        DropdownMenuItem(text = { Text("Zooma ut") }, enabled = zoom > 1f, onClick = { scaleTo(zoom / 1.5f); options = false })
+                        DropdownMenuItem(text = { Text("Visa alla åk") }, enabled = zoom > 1f, onClick = { zoom = 1f; pan = 0f; options = false })
+                        if (zoom > 1f) {
+                            DropdownMenuItem(text = { Text("Flytta till tidigare åk") }, enabled = boundedPan(pan, zoom) < 0f,
+                                onClick = { pan = boundedPan(pan + viewportPx / 2, zoom); options = false })
+                            DropdownMenuItem(text = { Text("Flytta till senare åk") }, enabled = boundedPan(pan, zoom) > -plotWidth(viewportPx) * (zoom - 1f),
+                                onClick = { pan = boundedPan(pan - viewportPx / 2, zoom); options = false })
+                        }
+                        if (onSkierSwipe != null) {
+                            HorizontalDivider()
+                            DropdownMenuItem(text = { Text("Föregående åkare") }, enabled = previousSkierEnabled, onClick = { options = false; onSkierSwipe(-1) })
+                            DropdownMenuItem(text = { Text("Nästa åkare") }, enabled = nextSkierEnabled, onClick = { options = false; onSkierSwipe(1) })
+                        }
+                    }
                 }
             }
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            ChartToolbar()
+        if (visible.isEmpty()) Text("Inga åk att visa i diagrammet.") else {
             Column(gestureModifier.fillMaxWidth().clipToBounds()) {
                         Canvas(Modifier.fillMaxWidth().height(150.dp).padding(top = 6.dp)
-                            .semantics { contentDescription = "Utvecklingsdiagram med ${shown.size} åk. Välj ett åk med kontrollerna nedanför för tid och taggar." }
+                            .semantics { contentDescription = "Utvecklingsdiagram med ${shown.size} åk. Tryck på ett åk eller använd Diagramval för åkval och zoom." }
                             .pointerInput(shown, improvement, baseline, onRunClick, onChangeClick, zoom, pan) {
                                 detectTapGestures { tap ->
                                     val index = chartHit(points(size.width.toFloat(), size.height.toFloat()), tap.x, tap.y, with(density) { 28.dp.toPx() })
@@ -169,6 +203,9 @@ import java.util.Locale
                                     }
                                 }
                                 val label = "${shown[i].number}${if (values[i] == null) " ×" else ""}"
+                                if (shown[i].attempt.id == (highlightedRunId ?: selectedId)) clipRect(left = leftInset, right = size.width - rightInset) {
+                                    drawCircle(ink, 14.dp.toPx(), Offset(point.x, point.y), style = Stroke(2.dp.toPx()))
+                                }
                                 val labelWidth = paint.measureText(label)
                                 val labelLeft = point.x - labelWidth / 2
                                 if (labelLeft >= leftInset && labelLeft >= lastLabelRight + 6.dp.toPx() && point.x + labelWidth / 2 <= size.width) {
@@ -198,48 +235,51 @@ import java.util.Locale
                     }
                 }
                 val slotWidth = plotWidthDp * zoom / shown.size.coerceAtLeast(1)
-                if (slotWidth >= 75.dp) Box(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                if (showTags && slotWidth >= 75.dp) Box(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                     Row(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).requiredWidth(plotWidthDp * zoom).offset(x = with(density) { (leftInset + boundedPan(pan, zoom)).toDp() })) {
                         shown.forEach { item ->
                             Column(Modifier.width(slotWidth).heightIn(min = 48.dp).clickable { open(item.attempt) }.padding(horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text("Åk ${item.number}${if (isBest(item.attempt)) " ★" else ""}${if (!item.attempt.complete) " · DNF" else ""}", style = MaterialTheme.typography.labelSmall)
                                 listOf(TagCategory.RUN, TagCategory.NEXT_FOCUS).forEach { category ->
                                     val labels = tags.filter { it.id in item.attempt.tags && it.category == category }.joinToString(" · ") { it.name }
-                                    if (labels.isNotBlank()) Text(labels, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
+                                    if (labels.isNotBlank()) Text(labels, textAlign = TextAlign.Center,
                                         style = MaterialTheme.typography.labelSmall, color = if (category == TagCategory.RUN) line else bestColor)
                                 }
                             }
                         }
                     }
                 }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { controls = !controls }) { Text(if (controls) "Dölj diagramverktyg" else "Välj åk / zoom") }
-                if (zoom > 1f) TextButton(onClick = { zoom = 1f; pan = 0f }) { Text("Visa alla") }
-                if (!controls) Text("Nyp för att zooma", style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    if (controls) selectedRun?.let { item ->
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(enabled = selectedIndex > 0, onClick = { selectedId = shown[selectedIndex - 1].attempt.id }) { Text("← Föregående åk") }
-                Box {
-                    OutlinedButton(onClick = { chooseRun = true }) { Text("Åk ${item.number} · ${if (item.attempt.complete) seconds(item.attempt.durationMs!!) + " s" else "DNF · ej fullföljt"}") }
-                    DropdownMenu(expanded = chooseRun, onDismissRequest = { chooseRun = false }) {
-                        shown.forEach { choice -> DropdownMenuItem(text = { Text("Åk ${choice.number} · ${if (choice.attempt.complete) seconds(choice.attempt.durationMs!!) + " s" else "DNF"}") },
-                            onClick = { selectedId = choice.attempt.id; chooseRun = false }) }
+                if (showTags && slotWidth < 75.dp) {
+                    Text("Taggar per åk", style = MaterialTheme.typography.labelLarge)
+                    val tagged = shown.filter { item -> tags.any { it.id in item.attempt.tags && it.category != TagCategory.CHANGE } }
+                    if (tagged.isEmpty()) Text("Inga taggar på åken ännu.", style = MaterialTheme.typography.bodySmall)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        tagged.forEach { item -> OutlinedCard(onClick = { open(item.attempt) }, modifier = Modifier.widthIn(max = 260.dp)) {
+                            Column(Modifier.padding(8.dp)) {
+                                Text("Åk ${item.number}", style = MaterialTheme.typography.labelLarge)
+                                listOf(TagCategory.RUN, TagCategory.NEXT_FOCUS).forEach { category ->
+                                    val names = tags.filter { it.id in item.attempt.tags && it.category == category }.joinToString(" · ") { it.name }
+                                    if (names.isNotBlank()) Text("${category.label}: $names", style = MaterialTheme.typography.labelSmall,
+                                        color = if (category == TagCategory.RUN) line else bestColor)
+                                }
+                            }
+                        } }
                     }
                 }
-                TextButton(enabled = selectedIndex < shown.lastIndex, onClick = { selectedId = shown[selectedIndex + 1].attempt.id }) { Text("Nästa åk →") }
-                TextButton(onClick = { open(item.attempt) }) { Text(if (onRunClick == null) "Visa detaljer" else "Taggar och anteckning") }
             }
-            run {
-                val selectedTags = tags.filter { it.id in item.attempt.tags }.joinToString(" · ") { it.name }
-                if (selectedTags.isNotBlank()) Text("Valt åk: $selectedTags", style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
+
         }
+    Text((if (onRunClick == null) "Tryck på ett åk för detaljer" else "Tryck på ett åk för tidskortet") +
+        if (zoom > 1f) " · ${"%.1f".format(zoom)}× zoom" else " · nyp för att zooma", style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    }
+    if (chooseRun) AlertDialog(onDismissRequest = { chooseRun = false }, title = { Text("Välj åk") }, text = {
+        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+            shown.forEach { item -> TextButton(onClick = { chooseRun = false; open(item.attempt) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("Åk ${item.number} · ${item.attempt.durationMs?.let { seconds(it) + " s" } ?: "DNF"}${if (!item.attempt.complete && item.attempt.durationMs != null) " · DNF" else ""}")
+            } }
+        }
+    }, confirmButton = { TextButton(onClick = { chooseRun = false }) { Text("Stäng") } })
     changeGroup?.let { group -> AlertDialog(onDismissRequest = { changeGroup = null }, title = { Text("Ändringar i diagrammet") },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) { group.forEach { marker ->
             TextButton(onClick = { if (onChangeClick != null) { changeGroup = null; onChangeClick(marker) } }) { Text("Efter resultat ${marker.afterSequence}: ${markerLabel(marker)}") }

@@ -8,6 +8,7 @@ internal object TrainingJson {
         put("team", s.team); put("dark", s.dark)
         put("sessionId", s.sessionId); put("sessionDate", s.sessionDate)
         put("participantIds", JSONArray(s.participantIds.toList()))
+        put("archivedRosterIds", JSONArray(s.archivedRosterIds.toList()))
         put("nextAthleteId", s.nextAthleteId ?: JSONObject.NULL)
         put("closedAt", s.closedAt ?: JSONObject.NULL)
         put("timingEvents", JSONArray(s.timingEvents.map { r -> JSONObject().apply {
@@ -56,6 +57,7 @@ internal object TrainingJson {
                     r.getString("reason"), TimingDecision.valueOf(r.getString("decision")),
                     if (r.isNull("athleteId")) null else r.getInt("athleteId"), if (r.isNull("attemptId")) null else r.getString("attemptId"),
                     if (r.isNull("decidedAt")) null else r.getString("decidedAt"))
-            } } ?: emptyList(), if (o.isNull("closedAt")) null else o.getString("closedAt"))
+            } } ?: emptyList(), if (o.isNull("closedAt")) null else o.getString("closedAt"),
+            o.optJSONArray("archivedRosterIds")?.let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() } ?: emptySet())
     }
 }

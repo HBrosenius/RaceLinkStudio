@@ -1,5 +1,19 @@
 package se.racelink.studio
 
+internal fun selectedCardRun(runs: List<Attempt>, selectedId: String?): Attempt? =
+    runs.firstOrNull { it.id == selectedId } ?: runs.maxByOrNull { it.sequence }
+
+internal fun adjacentCardRun(runs: List<Attempt>, selectedId: String?, direction: Int): Attempt? {
+    val ordered = runs.sortedBy { it.sequence }
+    val current = selectedCardRun(ordered, selectedId) ?: return null
+    return ordered.getOrNull(ordered.indexOfFirst { it.id == current.id } + direction)
+}
+
+internal fun Training.setRunNote(id: String, note: String): Training {
+    val run = attempts.single { it.id == id }
+    return correct(id, run.athleteId, run.complete, run.tags, note)
+}
+
 data class ChartRun(val attempt: Attempt, val number: Int)
 fun adjacentSkier(athletes: List<Athlete>, selected: Int, direction: Int): Int {
     val index = athletes.indexOfFirst { it.id == selected }

@@ -6,11 +6,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -112,8 +114,11 @@ internal class ReportExportViewModel(app: Application) : AndroidViewModel(app) {
 }
 
 @Composable private fun ExportOption(label: String, selected: Boolean, enabled: Boolean, change: (Boolean) -> Unit) {
-    androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Checkbox(checked = selected, enabled = enabled, onCheckedChange = change)
+    androidx.compose.foundation.layout.Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = selected, enabled = enabled, role = Role.Checkbox, onValueChange = change),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Checkbox(checked = selected, enabled = enabled, onCheckedChange = null)
         Text(label, Modifier.weight(1f))
     }
 }

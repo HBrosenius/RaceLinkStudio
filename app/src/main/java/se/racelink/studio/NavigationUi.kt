@@ -86,10 +86,25 @@ private val destinations = listOf("current" to "Aktuellt pass", "sessions" to "T
     if (embedded) content() else AppFullScreenDialog(close, content)
 }
 
-@Composable internal fun SettingsHome(s: Training, vm: TrainingViewModel, editTags: () -> Unit, simulator: () -> Unit, review: () -> Unit) {
+@OptIn(ExperimentalLayoutApi::class)
+@Composable internal fun EditorDialog(onDismissRequest: () -> Unit, title: @Composable () -> Unit,
+    text: @Composable () -> Unit, confirmButton: @Composable () -> Unit, dismissButton: @Composable () -> Unit) {
+    AppFullScreenDialog(onDismissRequest) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                title()
+                Box(Modifier.weight(1f).fillMaxWidth()) { text() }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { dismissButton(); confirmButton() }
+            }
+        }
+    }
+}
+
+@Composable internal fun SettingsHome(s: Training, vm: TrainingViewModel, editTags: () -> Unit, simulator: () -> Unit, review: () -> Unit, roster: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Inställningar", style = MaterialTheme.typography.headlineSmall)
         Text(s.team, style = MaterialTheme.typography.titleMedium)
+        OutlinedButton(onClick = roster) { Text("Hantera lagets åkarlista") }
         Text("Lag och coachningstaggar", style = MaterialTheme.typography.titleMedium)
         Text(if (s.closedAt == null) "Gäller aktuellt pass. Sparade pass behåller sina taggar." else "Passet är avslutat. Dess lag och taggar är skrivskyddade.")
         OutlinedButton(onClick = editTags, enabled = !vm.busy && s.closedAt == null) { Text("Redigera lag och taggar") }

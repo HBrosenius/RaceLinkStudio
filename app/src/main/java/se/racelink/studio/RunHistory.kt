@@ -38,9 +38,9 @@ internal fun Training.runHistory(id: String): List<RunHistoryEntry> = audit.mapN
     }
 }
 
-@Composable internal fun RunHistoryButton(s: Training, run: Attempt) {
+@Composable internal fun RunHistoryButton(s: Training, run: Attempt, label: String = "Ändringshistorik och originalresultat") {
     var open by rememberSaveable(run.id) { mutableStateOf(false) }
-    TextButton(onClick = { open = true }) { Text("Ändringshistorik och originalresultat") }
+    TextButton(onClick = { open = true }) { Text(label) }
     if (open) AppFullScreenDialog({ open = false }) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

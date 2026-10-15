@@ -9,6 +9,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 internal fun tagNameError(name: String, category: TagCategory, tags: List<CoachingTag>, id: Int): String? = when {
     name.isBlank() -> "Ange ett namn."
@@ -42,8 +44,8 @@ internal fun Training.updateTagSettings(teamName: String, updated: List<Coaching
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Lag och coachningstaggar", style = MaterialTheme.typography.headlineSmall)
-                Text("Namn och kategorier ändras för alla åk i aktuellt pass, även tidigare åk. Sparade pass behåller sina uppgifter.", style = MaterialTheme.typography.bodySmall)
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Namn och kategorier ändras för alla åk i aktuellt pass, även tidigare åk. Sparade pass behåller sina uppgifter.", style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(team, { team = it }, enabled = canEdit, label = { Text("Lagnamn") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TagCategory.entries.forEach { item -> FilterChip(selected = category == item, onClick = { categoryName = item.name }, label = { Text("${item.label} (${tags.count { it.category == item }})") }) }
@@ -56,7 +58,7 @@ internal fun Training.updateTagSettings(teamName: String, updated: List<Coaching
                         Card(Modifier.fillMaxWidth()) {
                             Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(tag.name, Modifier.weight(1f))
-                                TextButton(enabled = canEdit, onClick = { editingId = tag.id }) { Text("Redigera") }
+                                TextButton(enabled = canEdit, onClick = { editingId = tag.id }, modifier = Modifier.semantics { contentDescription = "Redigera taggen ${tag.name}" }) { Text("Redigera") }
                             }
                         }
                     }
@@ -88,7 +90,7 @@ internal fun Training.updateTagSettings(teamName: String, updated: List<Coaching
     val category = TagCategory.valueOf(categoryName)
     val validation = tagNameError(name, category, tags, original.id)
     val leave = draftClose(name != original.name || category != original.category, enabled, close)
-    AlertDialog(onDismissRequest = leave, title = { Text(if (original.name.isBlank()) "Lägg till tagg" else "Redigera tagg") }, text = {
+    EditorDialog(onDismissRequest = leave, title = { Text(if (original.name.isBlank()) "Lägg till tagg" else "Redigera tagg", style = MaterialTheme.typography.headlineSmall) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(name, { name = it }, enabled = enabled, label = { Text("Taggnamn") }, singleLine = true,
                 isError = validation != null, supportingText = { validation?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
