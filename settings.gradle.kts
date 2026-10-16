@@ -5,3 +5,5 @@ dependencyResolutionManagement {
 }
 rootProject.name = "RaceLinkStudio"
 include(":app")
+include(":shared")
+include(":server")

@@ -273,4 +273,33 @@
     <string name="dash_enter_valid_date">Ange ett giltigt datum som ÅÅÅÅ-MM-DD</string>
     <string name="dash_calendar">Kalender</string>
     <string name="dash_choose_date">Välj datum</string>
+
+    <!-- PublishSettingsUi.kt -->
+    <string name="pub_section">Publicering till åkarnas telefoner</string>
+    <string name="pub_note">Valfritt och avstängt som standard. När det är på skickas åkarens egna tider till servern så att hen kan se dem i mobilen. Anteckningar, taggar och granskningshistorik skickas aldrig. Träning visar bara personliga resultat, ingen resultatlista.</string>
+    <string name="pub_server_url">Serveradress (https://…)</string>
+    <string name="pub_token">Publiceringstoken</string>
+    <string name="pub_on">Publicering på</string>
+    <string name="pub_off">Publicering av</string>
+    <string name="pub_save">Spara inställningar</string>
+    <string name="pub_save_and_publish">Spara och publicera nu</string>
+    <string name="pub_last">Senast publicerad: %1$s</string>
+    <string name="pub_pair">Koppla åkare (QR-koder)</string>
+    <string name="pub_pair_title">Koppla åkare</string>
+    <string name="pub_pair_note">Låt varje åkare skanna sin egen QR-kod med mobilkameran och spara länken som bokmärke. Länken visar bara åkarens egna tider och fungerar hela passet. QR-koderna skapas på plattan och kräver ingen anslutning.</string>
+    <string name="pub_pair_needs_server">Ange en serveradress ovan och spara först.</string>
+    <string name="pub_pair_athlete">Nr %1$d · %2$s</string>
+    <string name="pub_pair_copy">Kopiera länk</string>
+    <string name="pub_pair_copied">Kopierad</string>
+    <string name="pub_pair_share">Dela länkar</string>
+    <string name="pub_name_policy">Namn på den publika sidan</string>
+    <string name="pub_name_first">Förnamn · tryck för bara nummer</string>
+    <string name="pub_name_bib">Bara nummer · tryck för förnamn</string>
+    <string name="pub_pending">Väntar på att publiceras · försöker igen automatiskt när nätet finns</string>
+    <string name="pub_retry">Försök igen nu</string>
+    <string name="pub_index_title">Länklistan på servern</string>
+    <string name="pub_index_password">Lösenord för länklistan</string>
+    <string name="pub_index_show">Visa</string>
+    <string name="pub_index_hint">Länklistan är sidan som samlar alla åkares länkar, och den ska barnen inte kunna öppna. Lösenordet sparas för det här passet och följer med vid publicering. Lämna fältet tomt om listan bara ska kunna öppnas från serverdatorn. I webbläsarens ruta spelar användarnamnet ingen roll.</string>
+    <string name="pub_close">Klar</string>
 </resources>

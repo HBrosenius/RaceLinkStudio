@@ -13,6 +13,7 @@ A tablet-first ski training application for Brower Race Link RL. The Android tab
 - [Hardware unknowns and simulator plan](03-hardware-and-simulator.md)
 - [Prioritized backlog and roadmap](04-backlog-and-roadmap.md)
 - [Feature and design interview — confirmed answers](05-feature-and-design-interview.md)
+- [Live publishing server](09-live-publishing-server.md)
 
 ## Confirmed direction
 
@@ -23,6 +24,8 @@ This supersedes the original Windows-server/React-PWA architecture. Native Andro
 Live timing and offline reliability remain central. The BLE protocol is unknown and stays behind an adapter. Use a simulator until hardware is available. The approximately 10-inch tablet sits beside the timer at the finish; direct BLE is the initial topology. The optional Pi gateway is deferred.
 
 The Swedish dashboard focuses on each child's personal progress, not rankings: latest finish, difference from the previous completed run, a large switchable chart and compact table. Use blue accents, light/dark themes and neutral feedback. Support reusable rosters, editable tags/notes, team branding, individual image/PDF summaries, per-child session reports and CSV. Shared summaries omit tags and notes unless selected at export.
+
+An optional read-only publishing service lets a skier see their own run on a phone over public HTTPS. It is a derived projection: the tablet stays authoritative, publishing never blocks capture, and offline operation is unchanged. Each skier pairs once by scanning their own QR code, generated on the tablet and usable offline. Training pages show personal progress only, never a leaderboard; race pages may show class places. Sessions auto-expire after a configurable retention window and can be hard-deleted; the skier's name can be limited to a bib. See [09-live-publishing-server.md](09-live-publishing-server.md).
 
 ## Next checkpoint
 

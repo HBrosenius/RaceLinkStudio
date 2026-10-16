@@ -25,7 +25,89 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         } else soundMessage = "Ljudinställningen kunde inte sparas."
     }
     fun previewResultSound() { soundMessage = if (resultSound.play()) "Provljud spelades." else "Inget ljud spelades. Kontrollera enhetens ljudläge, aviseringsvolym och Stör ej." }
+
+    fun savePublishConfig(serverUrl: String, token: String, enabled: Boolean, bibOnly: Boolean, indexPassword: String) {
+        val config = PublishConfig(serverUrl.trim(), token.trim(), enabled, bibOnly)
+        if (!publishSettings.write(config)) { publishMessage = "Inställningen kunde inte sparas."; return }
+        val sessionId = state?.sessionId
+        if (sessionId != null) {
+            // Stored against the session, not the app: a new event must not inherit the previous
+            // group's password, since the whole point is that the children cannot see each other.
+            if (!publishSettings.writeIndexPassword(sessionId, indexPassword)) {
+                publishMessage = "Inställningen kunde inte sparas."; return
+            }
+            indexPasswords[sessionId] = indexPassword.trim()
+        }
+        publishServerUrl = config.serverUrl; publishToken = config.token; publishEnabled = enabled
+        publishBibOnly = bibOnly; publishMessage = null
+    }
+    fun publishNow() {
+        val current = state ?: return
+        publishMessage = null
+        publishCommitted(current, force = true)
+    }
+
+    /**
+     * Re-reads the publish journal when the app returns to the foreground. A background retry may
+     * have flushed an outstanding publish while this screen was away, which would otherwise leave a
+     * stale "waiting" or failure line on screen; and if the publish is still outstanding it is
+     * attempted again immediately, because a foreground attempt is far more timely than waiting for
+     * the platform to run the background job.
+     */
+    fun refreshPublishStatus() {
+        val current = state ?: return
+        viewModelScope.launch {
+            val pending = withContext(Dispatchers.IO) { publishJournal.isPending(current.sessionId) }
+            publishPending = pending
+            publishLastAt = withContext(Dispatchers.IO) { publishJournal.lastDeliveredAt(current.sessionId) }
+            if (!pending && publishFailed) {
+                publishFailed = false
+                publishMessage = null
+            }
+            // Still outstanding and the app is open: attempt right now. A foreground attempt is
+            // immediate and reliable, unlike the background job (which the platform may defer), and
+            // a failure re-arms that job with a fresh backoff.
+            if (pending && publishEnabled) publishCommitted(current, force = true)
+        }
+    }
+
+    /** Network egress off the write lock; a no-op when publishing is off. Failures stay pending. */
+    private fun publishCommitted(current: Training, force: Boolean = false) {
+        if (!publishEnabled && !force) return
+        viewModelScope.launch {
+            publishMutex.withLock {
+                val message = withContext(Dispatchers.IO) { publisher.publish(current, force) }
+                if (message != null) publishMessage = message
+                publishLastAt = withContext(Dispatchers.IO) { publishJournal.lastDeliveredAt(current.sessionId) }
+                publishPending = withContext(Dispatchers.IO) { publishJournal.isPending(current.sessionId) }
+                publishFailed = publishPending
+            }
+            // A failed publish is handed to the JobScheduler so it can flush once the link returns.
+            if (publishPending) PublishScheduler.enqueue(appContext)
+        }
+    }
     private val store = TrainingStore(app)
+    private val appContext = app.applicationContext
+    private val publishSettings = PublishConfigStore(app)
+    private val publishJournal = PublishStateStore(app)
+    private val publisher = Publisher(publishSettings, publishJournal, HttpPublishTransport())
+    private val publishMutex = Mutex()
+    /** Per-session link-index passwords, read back once so the settings field can be drawn synchronously. */
+    private val indexPasswords = mutableMapOf<String, String>()
+
+    /** The password stored for [sessionId]'s link index, or empty when the coach has not set one. */
+    fun indexPasswordFor(sessionId: String): String = indexPasswords.getOrPut(sessionId) {
+        publishSettings.indexPassword(sessionId)
+    }
+    var publishEnabled by mutableStateOf(false); private set
+    var publishServerUrl by mutableStateOf(""); private set
+    var publishToken by mutableStateOf(""); private set
+    var publishMessage by mutableStateOf<String?>(null); private set
+    var publishLastAt by mutableStateOf<String?>(null); private set
+    var publishBibOnly by mutableStateOf(false); private set
+    var publishPending by mutableStateOf(false); private set
+    /** True while the last attempt failed; used to drop a stale failure line once a retry lands. */
+    var publishFailed by mutableStateOf(false); private set
     // Serializes committed writes so rapid commands queue instead of being silently dropped,
     // and each command is applied to the latest committed state rather than a stale snapshot.
     private val writeMutex = Mutex()
@@ -113,6 +195,7 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
                 state = next; revision++; pendingRestore = null; error = null; undoEdit = null
                 recoveryAvailable = previous != null || recoveryAvailable
                 backupMessage = "Träningen har återställts."
+                publishCommitted(next)
             } catch (e: Exception) { backupMessage = "Återställningen misslyckades: ${e.message}. Sparad träning har inte ändrats." }
             finally { inFlightWrites--; if (inFlightWrites <= 0) { inFlightWrites = 0; busy = false } }
         }
@@ -122,6 +205,18 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 state = withContext(Dispatchers.IO) { store.read() ?: demoTraining().also(store::save) }
                 backupReceipt = withContext(Dispatchers.IO) { store.backupReceipt() }
+                val publish = withContext(Dispatchers.IO) { publisher.config() }
+                publishEnabled = publish.enabled
+                publishServerUrl = publish.serverUrl
+                publishToken = publish.token
+                publishBibOnly = publish.bibOnly
+                state?.let { committed ->
+                    publishLastAt = withContext(Dispatchers.IO) { publishJournal.lastDeliveredAt(committed.sessionId) }
+                    publishPending = withContext(Dispatchers.IO) { publishJournal.isPending(committed.sessionId) }
+                    publishFailed = publishPending
+                    // Retry an outstanding publish from a previous run, or send the first snapshot.
+                    publishCommitted(committed)
+                }
             }
             catch (e: Exception) { error = "Kunde inte läsa sparad träning. Data har inte återställts: ${e.message}" }
         }
@@ -139,8 +234,8 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
         busy = true; error = null
         viewModelScope.launch {
             try {
-                writeMutex.withLock {
-                    val current = state ?: return@withLock
+                val committed = writeMutex.withLock {
+                    val current = state ?: return@withLock null
                     commitTraining(current, transform) { next -> withContext(Dispatchers.IO) { store.save(next) } }
                         .fold(onSuccess = { next ->
                             // Publish before unlocking: a waiting Main.immediate coroutine may
@@ -149,8 +244,11 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
                             if (resultSoundEnabled && hasNewCompletedResult(current, next)) resultSound.play()
                             if (next.sessionId != current.sessionId || next.closedAt != null) undoEdit = null
                             onCommitted()
-                        }, onFailure = { error = "Ändringen sparades inte: ${it.message}" })
+                            next
+                        }, onFailure = { error = "Ändringen sparades inte: ${it.message}"; null })
                 }
+                // Network egress runs outside the write lock so capture is never blocked by it.
+                committed?.let(::publishCommitted)
             } finally {
                 inFlightWrites--
                 if (inFlightWrites <= 0) { inFlightWrites = 0; busy = false }

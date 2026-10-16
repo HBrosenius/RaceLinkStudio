@@ -18,7 +18,7 @@ Brower start / split / finish equipment → existing Brower radio → RL Timer/i
                                       tablet UI/results
 
 Simulator → same normalized adapter contract
-Optional read-only viewers ← separate local publishing module (scope pending)
+Optional read-only skier pages ← publishing service (see 09-live-publishing-server.md)
 ```
 
 Place the tablet close enough for tested BLE operation. If it must remain 50–100 m away, place the Pi near the timer and field-test a separate IP backhaul. Do not assume BLE covers that distance. Only one receiver owns the physical timer connection at a time; switching topology requires source reconciliation.
@@ -35,6 +35,7 @@ Place the tablet close enough for tested BLE operation. If it must remain 50–1
 | Simulator adapter | Deterministic synthetic observations and fault profiles |
 | Optional Pi gateway | Native BLE adapter, durable spool, authenticated local transport |
 | Export/backup module | Consistent portable backups and user-selected file exports |
+| Publishing service (optional) | Read-only, revision-stamped projection of a session to a token-scoped public mobile page; Kotlin/Ktor on the JVM, sharing the wire contract with the app; never an authority. Pairing is offline: the tablet renders each athlete's link as a QR code (ZXing, pure JVM) for the skier's phone |
 
 These technologies are proposed, not implemented. The first spike validates the actual tablet and Android version before pinning dependencies. The UI reads the local database as its source of truth, consistent with [Android offline-first guidance](https://developer.android.com/topic/architecture/data-layer/offline-first).
 
@@ -117,7 +118,7 @@ Use three separate state dimensions: captureState (planned/running/completed/unk
 
 ## Sharing and operational design
 
-The tablet operator writes directly to local storage without a lease from any other machine. Remote editing is outside initial scope. If live viewers are required, select their delivery method and local transport in a separate feasibility step; lack of viewers must never stop capture. Use replay cursors and consistent snapshots for any viewer stream, with explicit stale status after disconnect.
+The tablet operator writes directly to local storage without a lease from any other machine. Remote editing is outside initial scope. If live viewers are required, select their delivery method and local transport in a separate feasibility step; lack of viewers must never stop capture. Use replay cursors and consistent snapshots for any viewer stream, with explicit stale status after disconnect. The selected method is a read-only publishing service over public HTTPS ([09-live-publishing-server.md](09-live-publishing-server.md)): the tablet pushes idempotent, revision-stamped session projections outbound, and skiers open token-scoped personal pages. It is a derived projection, never an authority — loss of the server or its link never affects capture.
 
 Keep data in app-private storage. Export via Android's user-selected document destination. Backups must include consistent database state, raw evidence and manifest; test restoration on a fresh installation. A CSV is not a complete backup. Tablet loss/uninstall can remove the authoritative data, so rehearse external backup before a field release.
 

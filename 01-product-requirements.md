@@ -14,8 +14,9 @@ Run repeated ski training from a standalone Android tablet: prepare athletes, ca
 | D04 | Standalone Android tablet | Local edits commit immediately with audit history; no server reconnection required. |
 | D05 | Larger tablet screen | Primary console uses available width for roster, current activity and results. |
 | D06 | Proprietary BLE unknown | Capability-aware adapter and simulator; no invented protocol. |
+| D07 | Optional live publishing to skier phones | Tablet stays authoritative; publishing is best-effort and never blocks capture. Training pages show personal data only. |
 
-The earlier Windows server and operator React PWA requirements are superseded. Offline queued operator edits are unnecessary on the authoritative tablet. Future remote edits would still require review.
+The earlier Windows server and operator React PWA requirements are superseded. Offline queued operator edits are unnecessary on the authoritative tablet. Future remote edits would still require review. D07 adds a one-way, read-only publishing path to skier phones (see [09-live-publishing-server.md](09-live-publishing-server.md)); it is not a second editor and does not change offline operation.
 
 ## Interview-confirmed product scope
 
@@ -57,8 +58,9 @@ Proposed edge-state defaults for prototype review: before the first finish, show
 | FR14 | Tags and branding | Editable tag library updates historical labels; team name and optional logo appear in app/reports. |
 | FR15 | Swedish tablet design | Blue accents, quick light/dark switch, readable chart and table on approximately 10-inch screen. |
 | FR16 | Noninterrupting finishes | Opening shows latest finisher; subsequent arrivals notify without replacing selected child's review. |
+| FR17 | Optional live publishing | Coach can publish a session to a server; a skier opens their own token-scoped result page on a phone. Unconfigured installs, offline operation and capture are unchanged. |
 
-Excluded initially: formal race scoring/certification, dual lanes, multiple editors, cloud dependence, device-setting writes, video, automated coaching, split comparisons, Pi gateway, remote viewers and cross-child improvement comparisons.
+Excluded initially: formal race scoring/certification, dual lanes, multiple editors, cloud dependence for core operation, device-setting writes, video, automated coaching, split comparisons, Pi gateway, remote editing and cross-child improvement comparisons. Optional read-only publishing (D07/FR17) is scheduled separately in [09-live-publishing-server.md](09-live-publishing-server.md).
 
 ## Tablet UI flows
 

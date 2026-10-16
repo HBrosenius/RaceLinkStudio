@@ -3,6 +3,7 @@ package se.racelink.studio
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,9 +24,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
+    private val model: TrainingViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { Studio() }
+        setContent { Studio(model) }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // A background retry may have flushed an outstanding publish while we were away.
+        model.refreshPublishStatus()
     }
 }
 

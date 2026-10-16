@@ -126,6 +126,8 @@ private val destinations = listOf("current" to "Aktuellt", "sessions" to "Histor
         FilterChip(selected = vm.resultSoundEnabled, onClick = { vm.setResultSound(!vm.resultSoundEnabled) }, label = { Text(if (vm.resultSoundEnabled) stringResource(R.string.dash_result_sound_on) else stringResource(R.string.dash_result_sound_off)) })
         OutlinedButton(onClick = vm::previewResultSound) { Text(stringResource(R.string.dash_try_result_sound)) }
         StatusMessage(vm.soundMessage)
+        HorizontalDivider()
+        PublishSettingsSection(s, vm)
         ReportBrandingSettings()
         HorizontalDivider()
         Text(stringResource(R.string.dash_demo_tools), style = MaterialTheme.typography.titleMedium)

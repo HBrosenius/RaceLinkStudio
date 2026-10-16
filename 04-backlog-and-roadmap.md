@@ -10,6 +10,10 @@ The debug APK builds and six domain tests pass. Initial slices of B03/B04/B07/B0
 
 The earlier progress paragraph is historical. The native demo now includes session/roster management and archived snapshots, correction history, review, multi-session/date/skier PDF/CSV reports with graphs, individual PNG reports, optional device-local logos, explicit Android sharing, backup/restore with freshness, optional device-local result sound and validated roster CSV import. Sound is off by default; report tags/notes remain opt-in. Import previews conflicts and adds identities without changing current attendance or historical runs. Build and 102 tests pass. A physical tablet coaching rehearsal and separate emulator import/export/accessibility checks are recorded in 06-ui-cleanup-and-feature-plan.md. B02/B05/B10 production reliability and B12/B13 timer/field gates remain open; these delivered simulator features do not establish field readiness.
 
+## Live publishing — 16 October 2026
+
+Optional read-only publishing to skier phones was planned (D07/FR17) and is now largely implemented: a shared wire contract (`:shared`), a Kotlin/Ktor service (`:server`) that accepts idempotent, revision-stamped session projections and renders token-scoped personal pages (training plus race place/score), and a tablet-side publisher wired into the view model (`Publish.kt`, `Publisher.kt`, `PublishConfig.kt`, `PublishTransport.kt`) with a persisted pending marker, a monotonic revision, an off-by-default settings section and an offline per-skier QR pairing sheet, plus server-side retention/TTL, hard delete, a first-name/bib name policy, a background retry that flushes an outstanding publish while the app is closed and again on the next resume, a per-skier trend chart of the skier's own runs with every point labelled by its time, and a link index that the coach locks with a password set per session on the tablet (or that stays loopback-only when none is set). Per-event publish tokens, durable server persistence, the GDPR/consent write-up and deployment remain open. See [09-live-publishing-server.md](09-live-publishing-server.md).
+
 ## Backlog
 
 | ID | Priority | Deliverable | Depends on | Acceptance |
@@ -33,6 +37,12 @@ The earlier progress paragraph is historical. The native demo now includes sessi
 | B17 | P2 | Formal races, dual lanes, cloud access | Separate specification | Approved rules and reliability requirements. |
 | B18 | P0 | Tags, notes and team identity | B03, B07 | Five initial Swedish tags, add/rename with historical label updates, optional notes, team name/logo. |
 | B19 | P0 | Course-change markers and prior sessions | B06, B08 | Continue within-session comparisons with visible change markers; earlier sessions open separately. |
+| B20 | Done | Publishing wire contract and name policy | B03 | `PublishEnvelope` shared by app and server; no notes/tags/audit published; deterministic per-athlete tokens; first-name default. |
+| B21 | Done | Read-only publishing service | B20 | Idempotent publish by revision; personal page renders own data only; noindex; tests for auth, stale revisions and no cross-skier leakage. |
+| B22 | Done | Tablet publish queue and settings | B21, B05 | Best-effort publish after each commit and at startup with monotonic revision, persisted pending marker, a "Spara och publicera nu" settings section and an offline QR pairing sheet; default off, never blocking capture. Failures are retried in the background by a network-constrained, expedited JobScheduler job and again immediately in the foreground when the app returns; the settings status refreshes on resume. |
+| B23 | Partial | Race publishing | B22, B17 rules | Class place and score plus a Pågår/Avslutad badge render on the personal page with parity tests; explicit preliminära/finalised wording remains. |
+| B24 | Partial | Privacy, retention and consent | B22 | TTL (`RACELINK_RETENTION_HOURS`), hard delete (`DELETE /api/v1/sessions/{id}`) and a first-name/bib name policy are done; noindex already in place, and the link index that lists everyone is locked by a per-session password the coach sets on the tablet (any password opens a live session's index; the store keeps only a salted digest). Per-event tenant tokens and the documented consent position for minors remain. |
+| B25 | Planned | Managed deployment and operations | B24 | Container deploy, TLS, monitoring, server backup, load test at the stated ceiling. |
 
 ## Phases and exit gates
 
