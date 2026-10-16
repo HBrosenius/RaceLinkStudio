@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-private val destinations = listOf("current" to "Aktuellt pass", "sessions" to "Träningspass", "reports" to "Rapporter", "settings" to "Inställningar")
+private val destinations = listOf("current" to "Aktuellt", "sessions" to "Historik", "reports" to "Rapporter", "settings" to "Inställningar")
 
 @Composable internal fun StudioNavigation(selected: String, select: (String) -> Unit, content: @Composable () -> Unit) {
     val screens = rememberSaveableStateHolder()

@@ -264,6 +264,16 @@ These decisions do not block the correctness fixes, compact-history prototype, s
 - Chart mode selector caps its preferred width to available space. New-result announcements and shared save/error feedback use polite live-region semantics, without moving selection or adding tag notifications. Queued DNF text includes ej fullföljt.
 - Validation: debug build and diff checks pass. Separate emulator checked narrow heading at 200% text and tablet portrait at 200%, including chart mode change, options menu and explicit run picker. Display overrides reset and test emulator stopped. Tablet/preview updated with existing data retained. Actual TalkBack speech, switch/keyboard navigation and outdoor readability remain unverified.
 
+## Implementation progress - available diagram height
+
+- Wide current/archived session dashboards now allocate unused vertical room to the plot. The diagram measures the remaining non-plot content and fills the bounded viewport, keeping a 150dp minimum when tags, course changes or a note editor need space. Natural-height measurement inside the scroll container avoids treating blank viewport space as content. Side-panel changes and selected-run card heights reflow automatically. Narrow/history-inline layouts and report plots keep their existing sizing.
+- Validation: debug build and diff checks pass. Separate emulator at tablet dimensions verified active-session growth from 150dp to about 219dp, reduction when tag labels are enabled, note editor expansion/cancellation and collapsed side panels. Overflow remains scrollable. Tablet/preview updated without changing training data.
+
+## Implementation progress - race mode, 16 October 2026
+
+- Added two-run total-time and differential slalom races with custom classes, explicit round selection, per-class standings and millisecond display precision. User-confirmed rules require two completed runs, exclude DNF from final placement and share places for exact ties. Extra results are retained separately until assigned or excluded; closing and starting another session require resolving them.
+- Race setup, corrections, DNF controls, history, PDF/CSV standings and backward-readable backup version 7 are implemented alongside training. Both formats and reversed second-round order were rehearsed on a separate emulator, including DNF, extra-result exclusion, closing, archived reopening and PDF preview. Debug build and 92 unit tests pass. Details: 07-race-mode.md. Timer hardware integration remains pending; physical tablet update requires reconnection.
+
 ## Implementation progress - reports and convenience, 15 October 2026
 
 - F06: export offers PDF, CSV and individual PNG (one skier in one session). PNG uses the same frozen selection, graph, coaching and note options as PDF, and combines at most six rendered pages into one image with a readable error for longer reports. Tags/notes remain off by default. Full-screen export keeps footer actions reachable. Preview, document saving and explicit Android sharing are available; sharing only opens the system chooser and never selects a recipient. FileProvider exposes only the report cache directory with temporary read grants.

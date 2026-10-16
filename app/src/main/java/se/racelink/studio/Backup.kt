@@ -23,7 +23,7 @@ internal fun readBackup(input: InputStream): Training {
 
 internal fun encodeBackup(state: Training): String {
     validateBackupState(state)
-    return JSONObject().put("format", "racelink-studio-demo").put("version", 6)
+    return JSONObject().put("format", "racelink-studio-demo").put("version", 7)
         .put("createdAt", Instant.now().toString()).put("state", TrainingJson.encode(state)).toString(2)
         .also { require(it.toByteArray(Charsets.UTF_8).size <= MAX_BACKUP_BYTES) { "Säkerhetskopian är för stor (max 16 MB)" } }
 }
@@ -44,12 +44,13 @@ internal fun decodeBackup(text: String): Training {
     val root = JSONObject(text)
     require(root.getString("format") == "racelink-studio-demo") { "Detta är inte en RaceLink-säkerhetskopia" }
     val version = root.getInt("version")
-    require(version in 1..6) { "Säkerhetskopians version stöds inte" }
+    require(version in 1..7) { "Säkerhetskopians version stöds inte" }
     val state = root.getJSONObject("state")
     val required = listOf("sessionId", "sessionDate", "sessionName", "location", "course", "trainingType", "roster", "participantIds", "archivedSessions")
     fun checkFields(o: JSONObject, archived: Boolean = false) {
         required.forEach { require(o.has(it) && !o.isNull(it)) { "Säkerhetskopian saknar $it" } }
         if (version >= 6) require(o.has("archivedRosterIds") && !o.isNull("archivedRosterIds")) { "Arkiveringsstatus saknas" }
+        if (version >= 7) require(o.has("race")) { "Tävlingsläge saknas" }
         if (version >= 5) {
             val markers = o.getJSONArray("markers")
             (0 until markers.length()).forEach { require(markers.getJSONObject(it).has("tags")) { "Ändringstaggar saknas" } }
@@ -84,6 +85,7 @@ internal fun validateBackupState(current: Training) {
         val athleteIds = s.athletes.map { it.id }.toSet()
         require(s.athletes.all { athlete -> s.roster.any { it == athlete } }) { "Åkarlistorna stämmer inte överens" }
         require(s.participantIds.isNotEmpty() && athleteIds.containsAll(s.participantIds)) { "Ogiltiga deltagare" }
+        s.validateRace()
         require(s.nextAthleteId == null || s.nextAthleteId in s.participantIds) { "Nästa åkare saknas bland deltagarna" }
         val tagIds = s.tags.map { it.id }.toSet()
         require(tagIds.size == s.tags.size && s.tags.all { it.id > 0 && it.name.isNotBlank() }) { "Ogiltiga taggar" }

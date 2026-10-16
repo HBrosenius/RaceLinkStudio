@@ -11,6 +11,9 @@ internal object TrainingJson {
         put("archivedRosterIds", JSONArray(s.archivedRosterIds.toList()))
         put("nextAthleteId", s.nextAthleteId ?: JSONObject.NULL)
         put("closedAt", s.closedAt ?: JSONObject.NULL)
+        put("race", s.race?.let { r -> JSONObject().put("format", r.format.name).put("classes", JSONArray(r.classes))
+            .put("activeRound", r.activeRound).put("athleteClasses", JSONObject(r.athleteClasses.mapKeys { it.key.toString() }))
+            .put("roundByAttempt", JSONObject(r.roundByAttempt)).put("unusedAttemptIds", JSONArray(r.unusedAttemptIds.toList())) } ?: JSONObject.NULL)
         put("timingEvents", JSONArray(s.timingEvents.map { r -> JSONObject().apply {
             put("id", r.id); put("reason", r.reason); put("decision", r.decision.name)
             put("athleteId", r.athleteId ?: JSONObject.NULL); put("attemptId", r.attemptId ?: JSONObject.NULL); put("decidedAt", r.decidedAt ?: JSONObject.NULL)
@@ -30,6 +33,7 @@ internal object TrainingJson {
     }
     fun decode(o: JSONObject, depth: Int = 0): Training {
         require(depth <= 1) { "Nästlade arkiv stöds inte" }
+        require(!o.has("race") || o.isNull("race") || o.get("race") is JSONObject) { "Ogiltiga tävlingsuppgifter" }
         fun objects(key: String) = o.getJSONArray(key).let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
         fun strings(key: String) = o.getJSONArray(key).let { a -> (0 until a.length()).map { a.getString(it) } }
         return Training(objects("athletes").map { Athlete(it.getInt("id"), it.getInt("bib"), it.getString("name")) },
@@ -58,6 +62,13 @@ internal object TrainingJson {
                     if (r.isNull("athleteId")) null else r.getInt("athleteId"), if (r.isNull("attemptId")) null else r.getString("attemptId"),
                     if (r.isNull("decidedAt")) null else r.getString("decidedAt"))
             } } ?: emptyList(), if (o.isNull("closedAt")) null else o.getString("closedAt"),
-            o.optJSONArray("archivedRosterIds")?.let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() } ?: emptySet())
+            o.optJSONArray("archivedRosterIds")?.let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() } ?: emptySet(),
+            o.optJSONObject("race")?.let { r ->
+                val classes = r.getJSONArray("classes"); val athletes = r.getJSONObject("athleteClasses"); val rounds = r.getJSONObject("roundByAttempt")
+                val unused = r.getJSONArray("unusedAttemptIds")
+                RaceConfig(RaceFormat.valueOf(r.getString("format")), (0 until classes.length()).map { classes.getString(it) },
+                    athletes.keys().asSequence().associate { it.toInt() to athletes.getString(it) }, r.getInt("activeRound"),
+                    rounds.keys().asSequence().associate { it to rounds.getInt(it) }, (0 until unused.length()).map { unused.getString(it) }.toSet())
+            })
     }
 }

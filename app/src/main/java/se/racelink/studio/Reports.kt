@@ -31,6 +31,14 @@ fun reportParagraphs(rows: List<ReportRun>, includeTags: Boolean = false, includ
         add("Pass-ID: ${session.sessionId}")
         add(session.team)
         if (session.sessionDetails().isNotBlank()) add(session.sessionDetails())
+        if (session.race != null) {
+            addAll(raceReportParagraphs(session, sessionRows.map { it.athlete.id }.toSet()))
+            sessionRows.forEach { row ->
+                if (includeTags) TagCategory.entries.forEach { category -> session.tagDescription(row.attempt, category).takeIf { it.isNotBlank() }?.let { add("${row.athlete.name} · ${category.label}: $it") } }
+                if (includeNotes && row.attempt.note.isNotBlank()) add("${row.athlete.name} · Anteckning: ${row.attempt.note}")
+            }
+            return@forEach
+        }
         sessionRows.groupBy { it.athlete.id }.values.forEach { skierRows ->
             val summary = summarizeRuns(skierRows)
             add("## ${summary.name} - Nummer ${skierRows.first().athlete.bib}")
@@ -63,16 +71,22 @@ fun reportRuns(sessions: List<Training>, sessionId: String? = null, athleteId: I
     }
 
 fun reportCsv(runs: List<ReportRun>): String {
+    val racing = runs.any { it.session.race != null }
+    val standings = runs.map { it.session }.distinctBy { it.sessionId }.filter { it.race != null }
+        .flatMap { s -> s.raceStandings().map { (s.sessionId to it.athlete.id) to it } }.toMap()
     fun quote(value: String): String {
         val safe = if (value.trimStart().firstOrNull() in listOf('=', '+', '-', '@')) "'$value" else value
         return "\"${safe.replace("\"", "\"\"")}\""
     }
-    return "\uFEFFKälla;Pass-ID;Datum;Passnamn;Plats;Bana;Träningstyp;Lag;Nummer;Namn;Åk;Resultat-ID;Tid (s);Status\r\n" + runs.joinToString("\r\n") { row ->
+    return "\uFEFFKälla;Pass-ID;Datum;Passnamn;Plats;Bana;Träningstyp;Lag;Nummer;Namn;Åk;Resultat-ID;Tid (s);Status" +
+        (if (racing) ";Tävlingsform;Klass;Tävlingsåk;Placering;Tävlingsresultat (s)" else "") + "\r\n" + runs.joinToString("\r\n") { row ->
         val run = row.attempt
-        listOf("SIMULATOR", row.session.sessionId, row.session.sessionDate, row.session.sessionName,
+        val fields = listOf("SIMULATOR", row.session.sessionId, row.session.sessionDate, row.session.sessionName,
             row.session.location, row.session.course, row.session.trainingType, row.session.team,
             row.athlete.bib.toString(), row.athlete.name, row.number.toString(), run.id,
-            if (run.complete) seconds(run.durationMs!!) else "", if (run.complete) "Fullföljt" else "DNF")
-            .joinToString(";") { quote(it) }
+            if (run.complete) (if (row.session.race != null) raceSeconds(run.durationMs!!) else seconds(run.durationMs!!)) else "", if (run.complete) "Fullföljt" else "DNF")
+        val entry = standings[row.session.sessionId to row.athlete.id]
+        (fields + if (racing) listOf(row.session.race?.format?.label.orEmpty(), entry?.className.orEmpty(), row.session.race?.roundByAttempt?.get(run.id)?.toString().orEmpty(),
+            entry?.place?.toString().orEmpty(), entry?.scoreMs?.let(::raceSeconds).orEmpty()) else emptyList()).joinToString(";", transform = ::quote)
     }
 }

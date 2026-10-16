@@ -73,7 +73,8 @@ data class Training(
     val nextAthleteId: Int? = null,
     val timingEvents: List<RecordedTiming> = emptyList(),
     val closedAt: String? = null,
-    val archivedRosterIds: Set<Int> = emptySet()
+    val archivedRosterIds: Set<Int> = emptySet(),
+    val race: RaceConfig? = null
 )
 data class TimingObservation(val id: String, val bib: Int, val sequence: Int, val durationMs: Long?, val complete: Boolean)
 interface TimingAdapter {
@@ -99,7 +100,12 @@ fun Training.simulateNext(adapter: TimingAdapter, incomplete: Boolean = false): 
     val athlete = activeAthletes().singleOrNull { it.id == nextAthleteId }
         ?: throw IllegalArgumentException("Välj nästa åkare först")
     val sequence = nextTimingSequence()
-    return ingest(adapter.next(sequence, athlete.bib, incomplete))
+    val round = if (race == null) null else requireNotNull(nextSimulatedRaceRound(athlete.id)) {
+        "Åkaren har redan två tävlingsåk eller ett extraresultat som behöver tilldelas först."
+    }
+    val event = adapter.next(sequence, athlete.bib, incomplete)
+    val next = ingest(event)
+    return if (round != null && next.race!!.roundByAttempt[event.id] != round) next.assignRaceRun(event.id, round) else next
 }
 fun Training.toggleTag(runId: String, tagId: Int): Training {
     require(tags.any { it.id == tagId && it.category != TagCategory.CHANGE })
@@ -124,6 +130,7 @@ fun Training.sessionDetails() = listOf(location, course, trainingType).filter { 
 fun Training.closeSession(): Training {
     if (closedAt != null) return this
     require(reviewQueue().isEmpty()) { "Granska väntande resultat innan passet avslutas" }
+    require(race == null || attempts.all { it.id in race.roundByAttempt || it.id in race.unusedAttemptIds }) { "Tilldela eller undanta extraresultaten innan tävlingen avslutas." }
     val now = java.time.Instant.now().toString()
     return copy(closedAt = now, nextAthleteId = null, pending = emptyList(),
         audit = audit + "$now | Pass avslutat | $sessionId")
@@ -134,6 +141,7 @@ fun Training.startNewSession(
     roster: List<Athlete> = this.roster, participants: Set<Int> = participantIds - archivedRosterIds
 ): Training {
     require(reviewQueue().isEmpty()) { "Granska väntande resultat innan ett nytt pass startas" }
+    require(race == null || attempts.all { it.id in race.roundByAttempt || it.id in race.unusedAttemptIds }) { "Tilldela eller undanta extraresultaten innan ett nytt pass startas." }
     require(name.isNotBlank()) { "Ange ett passnamn" }
     java.time.LocalDate.parse(date)
     require(roster.isNotEmpty() && roster.all { it.name.isNotBlank() && it.bib > 0 }) { "Åkare behöver namn och positivt nummer" }
@@ -143,7 +151,7 @@ fun Training.startNewSession(
         athletes = roster.filter { it.id in participants }, roster = roster, participantIds = participants, nextAthleteId = null,
         archivedRosterIds = archivedRosterIds.intersect(roster.map { it.id }.toSet()),
         sessionName = name.trim(), sessionDate = date, location = location.trim(), course = course.trim(), trainingType = trainingType.trim(),
-        attempts = emptyList(), markers = emptyList(), audit = emptyList(), pending = emptyList(), timingEvents = emptyList(),
+        attempts = emptyList(), markers = emptyList(), audit = emptyList(), pending = emptyList(), timingEvents = emptyList(), race = null,
         sessionId = java.util.UUID.randomUUID().toString(), closedAt = null,
         archivedSessions = listOf(copy(archivedSessions = emptyList(), pending = emptyList(), nextAthleteId = null,
             closedAt = closedAt ?: java.time.Instant.now().toString())) + archivedSessions
@@ -169,8 +177,10 @@ fun Training.correct(id: String, athleteId: Int, complete: Boolean, tags: Set<In
     require(!complete || old.durationMs != null) { "Ingen måltid finns för detta åk" }
     val revised = old.copy(athleteId = athleteId, complete = complete, tags = tags, note = note.trim())
     if (old == revised) return this
-    return copy(attempts = attempts.map { if (it.id == id) revised else it },
+    val next = copy(attempts = attempts.map { if (it.id == id) revised else it },
         audit = audit + runEditRecord(old, revised))
+    next.validateRace()
+    return next
 }
 fun demoTraining(): Training {
     val athletes = listOf(Athlete(1, 12, "Alma"), Athlete(2, 24, "Elias"), Athlete(3, 31, "Maja"), Athlete(4, 45, "Noah"))

@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import java.util.Locale
 
@@ -39,7 +40,8 @@ import java.util.Locale
     tags: List<CoachingTag> = emptyList(), taggedOnly: Boolean = false, onRunClick: ((String) -> Unit)? = null,
     onSkierSwipe: ((Int) -> Unit)? = null, changeLabels: Map<String, String> = emptyMap(), runSequences: Map<String, Int> = emptyMap(), onChangeClick: ((Marker) -> Unit)? = null,
     highlightedRunId: String? = null, toolbar: (@Composable () -> Unit)? = null,
-    setTaggedOnly: ((Boolean) -> Unit)? = null, previousSkierEnabled: Boolean = true, nextSkierEnabled: Boolean = true) {
+    setTaggedOnly: ((Boolean) -> Unit)? = null, previousSkierEnabled: Boolean = true, nextSkierEnabled: Boolean = true,
+    plotHeight: Dp = 150.dp) {
     var zoom by rememberSaveable { mutableFloatStateOf(1f) }
     var pan by rememberSaveable { mutableFloatStateOf(0f) }
     var showTags by rememberSaveable { mutableStateOf(false) }
@@ -164,7 +166,7 @@ import java.util.Locale
             ChartToolbar()
         if (visible.isEmpty()) Text("Inga åk att visa i diagrammet.") else {
             Column(gestureModifier.fillMaxWidth().clipToBounds()) {
-                        Canvas(Modifier.fillMaxWidth().height(150.dp).padding(top = 6.dp)
+                        Canvas(Modifier.fillMaxWidth().height(plotHeight.coerceAtLeast(150.dp)).padding(top = 6.dp)
                             .semantics { contentDescription = "Utvecklingsdiagram med ${shown.size} åk. Tryck på ett åk eller använd Diagramval för åkval och zoom." }
                             .pointerInput(shown, improvement, baseline, onRunClick, onChangeClick, zoom, pan) {
                                 detectTapGestures { tap ->

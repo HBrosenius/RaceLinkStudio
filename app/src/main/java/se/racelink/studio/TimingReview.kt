@@ -33,7 +33,7 @@ fun Training.ingest(event: TimingObservation, uncertain: Boolean = false): Train
         if (!conflict && !uncertain && athlete != null) java.time.Instant.now().toString() else null)
     if (recorded.decision == TimingDecision.WAITING) return copy(timingEvents = timingEvents + recorded)
     return copy(timingEvents = timingEvents + recorded,
-        attempts = attempts + Attempt(event.id, athlete!!.id, event.sequence, event.durationMs, event.complete), pending = pending + event.id)
+        attempts = attempts + Attempt(event.id, athlete!!.id, event.sequence, event.durationMs, event.complete), pending = pending + event.id).attachNewRaceRun(event.id)
 }
 
 fun Training.resolveTiming(id: String, decision: TimingDecision, athleteId: Int? = null, duplicateId: String? = null): Training {
@@ -47,6 +47,7 @@ fun Training.resolveTiming(id: String, decision: TimingDecision, athleteId: Int?
     when (decision) {
         TimingDecision.ASSIGNED -> {
             require(athletes.any { it.id == athleteId }) { "Välj en åkare i passet" }
+            require(race == null || athleteId in participantIds) { "Välj en deltagare i tävlingen." }
             attemptId = if (attempts.none { it.id == event.id }) event.id else "review-${old.id}"
             val sequence = if (attempts.none { it.sequence == event.sequence }) event.sequence else nextTimingSequence()
             result = copy(attempts = attempts + Attempt(attemptId, athleteId!!, sequence, event.durationMs, event.complete), pending = pending + attemptId)

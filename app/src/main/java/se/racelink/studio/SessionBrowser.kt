@@ -15,7 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-@Composable internal fun SessionBrowser(current: Training, reports: Boolean, close: () -> Unit, embedded: Boolean = false) {
+@Composable internal fun SessionBrowser(current: Training, reports: Boolean, close: () -> Unit, embedded: Boolean = false, vm: TrainingViewModel = viewModel()) {
     if (reports) {
         Reports(current, close, embedded)
         return
@@ -101,6 +101,8 @@ import androidx.compose.ui.window.DialogProperties
                                 }
                             } }
                         }
+                    } else if (session.race != null) {
+                        RaceScreen(session, vm, Modifier.weight(1f).fillMaxWidth(), archive = true)
                     } else if (athlete != null) {
                         OutlinedButton(onClick = { pickSkier = true }) { Text("Visar ${athlete.bib} · ${athlete.name} · byt åkare") }
                         val runs = session.runs(athlete.id)

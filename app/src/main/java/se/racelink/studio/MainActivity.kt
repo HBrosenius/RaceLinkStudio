@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -235,6 +237,8 @@ private val Blue = Color(0xFF3266D5)
     var newSession by rememberSaveable { mutableStateOf(false) }
     var editSession by rememberSaveable { mutableStateOf(false) }
     var editSessionParticipants by rememberSaveable { mutableStateOf(false) }
+    var raceSetup by rememberSaveable { mutableStateOf(false) }
+    var editingRace by rememberSaveable { mutableStateOf(false) }
     var focusedRunId by rememberSaveable(s.sessionId) { mutableStateOf<String?>(null) }
     var noteRunId by rememberSaveable(s.sessionId) { mutableStateOf<String?>(null) }
     var noteText by rememberSaveable(s.sessionId) { mutableStateOf("") }
@@ -275,6 +279,7 @@ private val Blue = Color(0xFF3266D5)
             "settings" -> settings = false
             "session-new" -> newSession = false
             "session-edit" -> editSession = false
+            "race-setup" -> raceSetup = false
         }
         vm.consumeEditorCommit()
     }
@@ -299,23 +304,27 @@ private val Blue = Color(0xFF3266D5)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(onClick = { sessionDetails = !sessionDetails }) { Text(if (sessionDetails) "Dölj detaljer" else "Passinfo") }
             Box {
-                OutlinedButton(onClick = { menu = true }) { Text("Passåtgärder") }
+                OutlinedButton(onClick = { menu = true }) { Text(if (s.race == null) "Passåtgärder" else "Tävlingsåtgärder") }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     if (s.pending.isNotEmpty()) DropdownMenuItem(text = { Text("Visa nya resultat (${s.pending.size})") }, onClick = { dismissedResultId = null; menu = false })
                     vm.undoEdit?.let { undo -> DropdownMenuItem(text = { Text("Ångra · ${undo.label}") }, enabled = !vm.busy && !vm.backupBusy, onClick = { vm.undoLastEdit(); menu = false }) }
                     DropdownMenuItem(text = { Text("Starta träningspass") }, enabled = !vm.busy && s.reviewQueue().isEmpty(),
                         onClick = { guardNote { newSession = true }; menu = false })
-                    DropdownMenuItem(text = { Text("Redigera aktuellt pass") }, enabled = !vm.busy && s.closedAt == null,
+                    DropdownMenuItem(text = { Text("Starta tävling") }, enabled = !vm.busy && s.reviewQueue().isEmpty(),
+                        onClick = { guardNote { editingRace = false; raceSetup = true }; menu = false })
+                    if (s.race != null) DropdownMenuItem(text = { Text("Redigera tävling") }, enabled = !vm.busy && s.closedAt == null,
+                        onClick = { editingRace = true; raceSetup = true; menu = false })
+                    if (s.race == null) DropdownMenuItem(text = { Text("Redigera aktuellt pass") }, enabled = !vm.busy && s.closedAt == null,
                         onClick = { guardNote { editSessionParticipants = false; editSession = true }; menu = false })
-                    DropdownMenuItem(text = { Text("Avsluta träningspass") }, enabled = !vm.busy && s.closedAt == null && s.reviewQueue().isEmpty(),
+                    DropdownMenuItem(text = { Text(if (s.race == null) "Avsluta träningspass" else "Avsluta tävling") }, enabled = !vm.busy && s.closedAt == null && s.reviewQueue().isEmpty(),
                         onClick = { guardNote { closeSession = true }; menu = false })
-                    DropdownMenuItem(text = { Text("Markera ändring") }, enabled = !vm.busy && s.closedAt == null, onClick = { changeDialog = true; menu = false })
+                    if (s.race == null) DropdownMenuItem(text = { Text("Markera ändring") }, enabled = !vm.busy && s.closedAt == null, onClick = { changeDialog = true; menu = false })
                 }
             }
             }
         }
         if (sessionDetails) Text("${s.team} · ${s.sessionDetails().ifBlank { "Inga fler passuppgifter" }}\nSimulator · ingen timer är ansluten", style = MaterialTheme.typography.bodySmall)
-        if (s.closedAt != null) OutlinedButton(onClick = { handoff = true }) { Text("Passammanfattning · rapport och säkerhetskopia") }
+        if (s.closedAt != null) OutlinedButton(onClick = { handoff = true }) { Text(if (s.race == null) "Passammanfattning · rapport och säkerhetskopia" else "Tävlingssammanfattning · rapport och säkerhetskopia") }
         if (vm.error != null) Text(vm.error!!, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.error)
         vm.undoEdit?.takeIf { it.showNotice }?.let { undo ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -330,7 +339,7 @@ private val Blue = Color(0xFF3266D5)
             val arrived = s.nextPendingRun()
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${s.pending.size} nya resultat · ${s.athletes.firstOrNull { it.id == arrived?.athleteId }?.name.orEmpty()} · ${if (arrived?.complete == true) seconds(arrived.durationMs!!) + " s" else "DNF · ej fullföljt"}", Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite })
+                    Text("${s.pending.size} nya resultat · ${s.athletes.firstOrNull { it.id == arrived?.athleteId }?.name.orEmpty()} · ${if (arrived?.complete == true) (if (s.race != null) raceSeconds(arrived.durationMs!!) else seconds(arrived.durationMs!!)) + " s" else "DNF · ej fullföljt"}", Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite })
                     TextButton(onClick = {
                         val first = s.nextPendingRun()
                         if (first != null) vm.update(onCommitted = { vm.queuedRunCommitted(first.id) }) { it.acknowledgePending(first.id) }
@@ -339,7 +348,9 @@ private val Blue = Color(0xFF3266D5)
                 }
             }
         }
-        BoxWithConstraints(Modifier.weight(1f)) {
+        if (s.race != null) RaceScreen(s, vm, Modifier.weight(1f), simulator = { simulator = true },
+            editRun = { editingId = it }, editSetup = { editingRace = true; raceSetup = true }, highlightedRunId = focusedRunId)
+        else BoxWithConstraints(Modifier.weight(1f)) {
             val wide = maxWidth >= 900.dp && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.5f
             if (wide) Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 if (skiersCollapsed) PanelHandle(left = true, expand = { skiersCollapsed = false })
@@ -380,9 +391,9 @@ private val Blue = Color(0xFF3266D5)
         vm.update(onCommitted = { vm.editorCommitted("change-new") }) { it.recordChange(tags, note) }
     }
     if (review) TimingReviewScreen(s, vm) { review = false }
-    if (closeSession) AlertDialog(onDismissRequest = { closeSession = false }, title = { Text("Avsluta träningspasset?") },
+    if (closeSession) AlertDialog(onDismissRequest = { closeSession = false }, title = { Text(if (s.race == null) "Avsluta träningspasset?" else "Avsluta tävlingen?") },
         text = { Column { SaveFeedback(!vm.busy, vm.error); Text("Passets resultat, taggar och anteckningar sparas och blir skrivskyddade. Inget nytt pass startas. Du kan fortfarande bläddra, skapa rapporter och säkerhetskopiera.") } },
-        confirmButton = { TextButton(enabled = !vm.busy, onClick = { vm.update(onCommitted = { vm.editorCommitted("close") }) { it.closeSession() } }) { Text("Avsluta pass") } },
+        confirmButton = { TextButton(enabled = !vm.busy, onClick = { vm.update(onCommitted = { vm.editorCommitted("close") }) { it.closeSession() } }) { Text(if (s.race == null) "Avsluta pass" else "Avsluta tävling") } },
         dismissButton = { TextButton(onClick = { closeSession = false }) { Text("Avbryt") } })
     if (simulator) AlertDialog(onDismissRequest = { simulator = false }, title = { Text("Simulator") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -391,8 +402,13 @@ private val Blue = Color(0xFF3266D5)
             s.activeAthletes().forEach { skier -> FilterChip(selected = s.nextAthleteId == skier.id, enabled = !vm.busy,
                 onClick = { vm.update { it.selectNextAthlete(skier.id) } }, label = { Text("${skier.bib} · ${skier.name}") }) }
             Text("Valet behålls tills du byter eller rensar åkare.", style = MaterialTheme.typography.bodySmall)
-            Button(onClick = { vm.simulate() }, enabled = !vm.busy && s.nextAthleteId != null) { Text("Simulera mål") }
-            OutlinedButton(onClick = { vm.simulate(true) }, enabled = !vm.busy && s.nextAthleteId != null) { Text("Simulera avbrutet") }
+            val simulatedRound = s.nextAthleteId?.let { s.nextSimulatedRaceRound(it) }
+            val canSimulate = !vm.busy && s.nextAthleteId != null && (s.race == null || simulatedRound != null)
+            if (s.race != null && s.nextAthleteId != null) Text(if (simulatedRound != null)
+                "Nästa simulerade resultat: åk $simulatedRound. Simulatorn fyller åkarens nästa lediga tävlingsåk."
+                else "Inget ledigt tävlingsåk. Åkaren har två registrerade åk eller extraresultat som behöver tilldelas under Hantera registrerade resultat.")
+            Button(onClick = { vm.simulate() }, enabled = canSimulate) { Text("Simulera mål") }
+            OutlinedButton(onClick = { vm.simulate(true) }, enabled = canSimulate) { Text("Simulera avbrutet") }
             if (s.nextAthleteId != null) TextButton(onClick = { vm.update { it.selectNextAthlete(null) } }, enabled = !vm.busy) { Text("Rensa val") }
             TextButton(onClick = { reset = true; simulator = false }, enabled = !vm.busy) { Text("Återställ demo") }
             vm.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -405,6 +421,12 @@ private val Blue = Color(0xFF3266D5)
     } }
     if (settings) Settings(s, !vm.busy, { settings = false }, error = vm.error) { team, tags ->
         vm.update(onCommitted = { vm.editorCommitted("settings") }) { it.updateTagSettings(team, tags) }
+    }
+    if (raceSetup) RaceSetup(s, !vm.busy && !vm.backupBusy, { raceSetup = false }, editingRace, vm.error) { next ->
+        vm.update(onCommitted = { vm.editorCommitted("race-setup") }) { current ->
+            require(current == s) { "Underlaget har ändrats. Öppna tävlingsupplägget igen." }
+            next
+        }
     }
     if (newSession) SessionSetup(s, !vm.busy, { newSession = false }, error = vm.error) { next ->
         vm.update(onCommitted = { vm.editorCommitted("session-new") }) { next }
@@ -471,7 +493,7 @@ private val Blue = Color(0xFF3266D5)
     var taggedOnly by rememberSaveable(athlete.id) { mutableStateOf(false) }
     val visible = chartRuns(runs, taggedOnly)
     val emptySession = !readOnly && s.closedAt == null && s.attempts.isEmpty()
-    val summary: @Composable () -> Unit = {
+    val summary: @Composable (Dp) -> Unit = { plotHeight ->
         if (emptySession) EmptySessionGuide(s, tagEnabled, openParticipants, chooseNext, openSimulator)
         else {
         LatestResultCard(s, athlete, runs, displayed, readOnly, tagEnabled, toggleTag, setDnf, { chooseRun(null) }, edit,
@@ -484,7 +506,7 @@ private val Blue = Color(0xFF3266D5)
                 key(s.sessionId, athlete.id) {
                     TrendChart(runs, s.markers, improvement, s.tags, taggedOnly,
                         onRunClick = { chooseRun(it) }, highlightedRunId = displayed?.id,
-                        toolbar = { ChartModeSelector(improvement, setMode) }, setTaggedOnly = { taggedOnly = it },
+                        toolbar = { ChartModeSelector(improvement, setMode) }, setTaggedOnly = { taggedOnly = it }, plotHeight = plotHeight,
                         previousSkierEnabled = s.athletes.indexOf(athlete) > 0, nextSkierEnabled = s.athletes.indexOf(athlete) < s.athletes.lastIndex, onSkierSwipe = onSkierSwipe, changeLabels = runs.associate { it.id to s.tagDescription(it, TagCategory.CHANGE) }, runSequences = runs.associate { it.id to s.originalSequence(it) }, onChangeClick = if (!readOnly && tagEnabled) ({ marker -> editChange(s.markers.indexOfFirst { it === marker }) }) else null)
                 }
             }
@@ -499,9 +521,20 @@ private val Blue = Color(0xFF3266D5)
     }
     BoxWithConstraints(modifier) {
         val sideHistory = maxWidth >= 800.dp && androidx.compose.ui.platform.LocalDensity.current.fontScale < 1.5f
-        if (emptySession) Column(Modifier.fillMaxSize().verticalScroll(cardScroll)) { summary() }
+        val density = LocalDensity.current
+        val viewportHeight = maxHeight
+        var nonPlotHeightPx by remember(s.sessionId, athlete.id, sideHistory) { mutableStateOf<Int?>(null) }
+        val expandPlot = sideHistory && constraints.hasBoundedHeight && visible.isNotEmpty()
+        val plotHeight = if (expandPlot && nonPlotHeightPx != null) {
+            with(density) { (viewportHeight.roundToPx() - nonPlotHeightPx!!).coerceAtLeast(150.dp.roundToPx()).toDp() }
+        } else 150.dp
+        if (emptySession) Column(Modifier.fillMaxSize().verticalScroll(cardScroll)) { summary(150.dp) }
         else if (sideHistory) Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(cardScroll), verticalArrangement = Arrangement.spacedBy(8.dp)) { summary() }
+            Column(Modifier.weight(1f).verticalScroll(cardScroll).onSizeChanged { size ->
+                // Measure the content inside the scroll viewport, excluding the variable plot.
+                // This lets the plot use spare room without pushing tags/notes off screen.
+                nonPlotHeightPx = size.height - if (visible.isNotEmpty()) with(density) { plotHeight.roundToPx() } else 0
+            }, verticalArrangement = Arrangement.spacedBy(8.dp)) { summary(plotHeight) }
             if (hideHistory) PanelHandle(left = false, expand = { collapseHistory(false) })
             else Column(Modifier.width(240.dp).fillMaxHeight()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -511,7 +544,7 @@ private val Blue = Color(0xFF3266D5)
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) { history() }
             }
         } else Column(Modifier.fillMaxSize().verticalScroll(cardScroll), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            summary()
+            summary(150.dp)
             TextButton(onClick = { collapseHistory(!hideHistory) }) { Text(if (hideHistory) "Visa tidigare åk" else "Dölj tidigare åk") }
             if (!hideHistory) history()
         }

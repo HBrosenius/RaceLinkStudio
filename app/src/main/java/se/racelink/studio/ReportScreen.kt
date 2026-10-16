@@ -69,8 +69,14 @@ import androidx.compose.ui.window.DialogProperties
                             }
                             item(key = "summary-${session.sessionId}") {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("Sammanfattning per åkare", style = MaterialTheme.typography.titleMedium)
-                                    sessionRows.groupBy { it.athlete.id }.values.forEach { skierRows ->
+                                    Text(if (session.race == null) "Sammanfattning per åkare" else "Resultat per klass · ${session.race.format.label}", style = MaterialTheme.typography.titleMedium)
+                                    if (session.race != null) session.raceStandings().filter { entry -> sessionRows.any { it.athlete.id == entry.athlete.id } }.forEach { entry ->
+                                        Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
+                                            Text("${entry.className} · ${entry.place?.let { "Placering $it" } ?: "Ingen placering"} · ${entry.athlete.name}")
+                                            Text("Åk 1: ${raceTime(entry.first)} · Åk 2: ${raceTime(entry.second)}")
+                                            Text("${session.race.format.scoreLabel}: ${entry.scoreMs?.let { raceSeconds(it) + " s" } ?: "–"} · ${entry.status}")
+                                        } }
+                                    } else sessionRows.groupBy { it.athlete.id }.values.forEach { skierRows ->
                                         val summary = summarizeRuns(skierRows)
                                         Card(Modifier.fillMaxWidth()) {
                                             Column(Modifier.padding(12.dp)) {
@@ -81,7 +87,7 @@ import androidx.compose.ui.window.DialogProperties
                                     }
                                 }
                             }
-                            if (showGraphs) sessionRows.groupBy { it.athlete.id }.forEach { (skierId, skierRows) -> item(key = "chart-${session.sessionId}-$skierId") {
+                            if (showGraphs && session.race == null) sessionRows.groupBy { it.athlete.id }.forEach { (skierId, skierRows) -> item(key = "chart-${session.sessionId}-$skierId") {
                                 Card {
                                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                                         Text("${skierRows.first().athlete.name} · Utveckling under passet", style = MaterialTheme.typography.titleMedium)
@@ -90,7 +96,7 @@ import androidx.compose.ui.window.DialogProperties
                                     }
                                 }
                             } }
-                            items(sessionRows, key = { "${it.session.sessionId}/${it.attempt.id}" }) { row ->
+                            items(if (session.race == null) sessionRows else emptyList(), key = { "${it.session.sessionId}/${it.attempt.id}" }) { row ->
                                 val run = row.attempt
                                 val skierRuns = session.runs(row.athlete.id)
                                 val previous = skierRuns.previous(run)
