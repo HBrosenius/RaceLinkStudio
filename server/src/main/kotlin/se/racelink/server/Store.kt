@@ -2,11 +2,19 @@ package se.racelink.server
 
 import se.racelink.publish.PublishAthlete
 import se.racelink.publish.PublishEnvelope
+import se.racelink.publish.CoachProjection
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+import java.nio.file.Path
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.Base64
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /** How a skier is identified on their public page. `BIB` hides the name entirely. */
 enum class NamePolicy { FIRST, BIB }
@@ -18,9 +26,16 @@ enum class NamePolicy { FIRST, BIB }
  */
 internal class IndexPassword private constructor(private val salt: ByteArray, private val hash: ByteArray) {
     fun matches(candidate: String): Boolean = MessageDigest.isEqual(hash, hashOf(candidate, salt))
+    fun encoded(): List<String> = listOf(salt, hash).map { Base64.getEncoder().encodeToString(it) }
 
     companion object {
         private const val SALT_BYTES = 16
+        fun restore(parts: List<String>): IndexPassword {
+            require(parts.size == 2)
+            val bytes = parts.map { Base64.getDecoder().decode(it) }
+            require(bytes[0].size == SALT_BYTES && bytes[1].size == 32)
+            return IndexPassword(bytes[0], bytes[1])
+        }
 
         fun of(password: String): IndexPassword {
             val salt = ByteArray(SALT_BYTES).also { SecureRandom().nextBytes(it) }
@@ -66,39 +81,93 @@ data class ServerConfig(
 
 /**
  * Holds the latest accepted projection per session and rejects stale revisions, so a retried publish
- * after a flaky link can never move the public page backwards. In-memory for the spike; the surface
- * is deliberately small so a durable (Postgres) store can replace it without touching the routes.
+ * after a flaky link can never move the public page backwards. An optional atomic file snapshot
+ * keeps projections, receipt times and password hashes across restarts on a single server.
  *
  * Retention is measured from the last *accepted* publish, which for a closed session is
  * effectively its close time. Purges drop the session and its token index together, so an expired
  * link 404s instead of leaking a stale page.
  */
-class ProjectionStore(private val now: () -> Instant = Instant::now) {
+class ProjectionStore(private val dataFile: Path? = null, private val now: () -> Instant = Instant::now) {
+    @Serializable
+    private data class SavedSession(val envelope: PublishEnvelope, val receivedAt: String, val password: List<String>? = null,
+        val coaching: CoachProjection? = null)
+    @Serializable
+    private data class Snapshot(val version: Int = 1, val sessions: List<SavedSession>)
     private data class Stored(
         val revision: Long,
         val envelope: PublishEnvelope,
         val receivedAt: Instant,
         /** The coach-set index password for this session's publish, or null when never set. */
         val indexPassword: IndexPassword? = null,
+        val coaching: CoachProjection? = null,
     )
 
     private val bySession = ConcurrentHashMap<String, Stored>()
     private val tokenToSession = ConcurrentHashMap<String, String>()
+    private var durableState: Map<String, Stored> = emptyMap()
+
+    init {
+        if (dataFile != null && Files.exists(dataFile)) {
+            val snapshot = Json.decodeFromString<Snapshot>(Files.readString(dataFile))
+            require(snapshot.version == 1) { "Unsupported projection store version" }
+            snapshot.sessions.forEach {
+                bySession[it.envelope.session.id] = Stored(it.envelope.revision, it.envelope,
+                    Instant.parse(it.receivedAt), it.password?.let(IndexPassword::restore), it.coaching)
+            }
+            rebuildTokens()
+        }
+        durableState = bySession.toMap()
+    }
+
+    private fun rebuildTokens() {
+        tokenToSession.clear()
+        bySession.values.forEach { stored ->
+            stored.envelope.athletes.forEach { tokenToSession[it.token] = stored.envelope.session.id }
+        }
+    }
+
+    /** Atomic replacement; an unreadable/corrupt snapshot fails startup rather than losing data. */
+    private fun persist() {
+        val target = dataFile?.toAbsolutePath() ?: return
+        var temporary: Path? = null
+        try {
+            Files.createDirectories(target.parent)
+            temporary = Files.createTempFile(target.parent, ".racelink-", ".tmp")
+            val snapshot = Snapshot(sessions = bySession.values.map {
+                SavedSession(it.envelope, it.receivedAt.toString(), it.indexPassword?.encoded(), it.coaching)
+            })
+            java.nio.channels.FileChannel.open(temporary, java.nio.file.StandardOpenOption.WRITE).use {
+                val bytes = java.nio.ByteBuffer.wrap(Json.encodeToString(snapshot).toByteArray(Charsets.UTF_8))
+                while (bytes.hasRemaining()) it.write(bytes)
+                it.force(true)
+            }
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            durableState = bySession.toMap()
+        } catch (failure: Exception) {
+            bySession.clear()
+            bySession.putAll(durableState)
+            rebuildTokens()
+            throw failure
+        } finally {
+            temporary?.let { Files.deleteIfExists(it) }
+        }
+    }
 
     /** @return the revision now stored (the incoming one when accepted, otherwise the newer existing). */
-    fun put(envelope: PublishEnvelope): Long {
+    @Synchronized fun put(envelope: PublishEnvelope, coaching: CoachProjection? = null): Long {
         var storedRevision = envelope.revision
         bySession.compute(envelope.session.id) { _, existing ->
             if (existing == null || envelope.revision > existing.revision) {
-                Stored(envelope.revision, envelope, now(), existing?.indexPassword)
+                Stored(envelope.revision, envelope, now(), existing?.indexPassword, coaching)
             } else {
                 storedRevision = existing.revision
                 existing
             }
         }
         // A correction can add or rename athletes, so rebuild this session's token index.
-        tokenToSession.entries.removeIf { it.value == envelope.session.id }
-        envelope.athletes.forEach { tokenToSession[it.token] = envelope.session.id }
+        rebuildTokens()
+        persist()
         return storedRevision
     }
 
@@ -107,10 +176,11 @@ class ProjectionStore(private val now: () -> Instant = Instant::now) {
      * coach can turn the protection off again from the tablet. Trimmed, because a trailing space is
      * invisible in the tablet's field but would have to be typed into the browser's prompt.
      */
-    fun setIndexPassword(sessionId: String, password: String) {
+    @Synchronized fun setIndexPassword(sessionId: String, password: String) {
         bySession.computeIfPresent(sessionId) { _, existing ->
             existing.copy(indexPassword = password.trim().takeIf { it.isNotEmpty() }?.let(IndexPassword::of))
         }
+        persist()
     }
 
     /** @return true when [candidate] opens the index for at least one live session. */
@@ -121,6 +191,7 @@ class ProjectionStore(private val now: () -> Instant = Instant::now) {
     fun hasIndexPassword(): Boolean = bySession.values.any { it.indexPassword != null }
 
     fun session(id: String): PublishEnvelope? = bySession[id]?.envelope
+    fun coaching(id: String): CoachProjection? = bySession[id]?.coaching
 
     fun athlete(token: String): Pair<PublishEnvelope, PublishAthlete>? {
         val sessionId = tokenToSession[token] ?: return null
@@ -132,14 +203,15 @@ class ProjectionStore(private val now: () -> Instant = Instant::now) {
     fun sessions(): List<PublishEnvelope> = bySession.values.map { it.envelope }
 
     /** Hard-deletes one session and every token that pointed at it. @return true when it existed. */
-    fun delete(sessionId: String): Boolean {
+    @Synchronized fun delete(sessionId: String): Boolean {
         val existed = bySession.remove(sessionId) != null
         if (existed) tokenToSession.entries.removeIf { it.value == sessionId }
+        if (existed) persist()
         return existed
     }
 
     /** Drops sessions unseen for [retentionHours]. A non-positive window disables expiry. @return count purged. */
-    fun purge(retentionHours: Int): Int {
+    @Synchronized fun purge(retentionHours: Int): Int {
         if (retentionHours <= 0) return 0
         val cutoff = now().minus(Duration.ofHours(retentionHours.toLong()))
         val expired = mutableListOf<String>()
@@ -149,6 +221,7 @@ class ProjectionStore(private val now: () -> Instant = Instant::now) {
             stale
         }
         expired.forEach { id -> tokenToSession.entries.removeIf { it.value == id } }
+        if (expired.isNotEmpty()) persist()
         return expired.size
     }
 }

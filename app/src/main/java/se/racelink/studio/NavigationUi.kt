@@ -128,7 +128,7 @@ private val destinations = listOf("current" to "Aktuellt", "sessions" to "Histor
         StatusMessage(vm.soundMessage)
         HorizontalDivider()
         PublishSettingsSection(s, vm)
-        ReportBrandingSettings()
+        ReportBrandingSettings(onChanged = vm::reportBrandingChanged)
         HorizontalDivider()
         Text(stringResource(R.string.dash_demo_tools), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.dash_simulator_no_timer_full))

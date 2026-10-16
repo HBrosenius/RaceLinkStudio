@@ -4,12 +4,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +35,7 @@ internal fun PublishSettingsSection(state: Training, vm: TrainingViewModel) {
     var indexPassword by rememberSaveable(state.sessionId) { mutableStateOf(vm.indexPasswordFor(state.sessionId)) }
     var showPassword by remember { mutableStateOf(false) }
     var pairing by remember { mutableStateOf(false) }
+    var confirmWithdraw by remember { mutableStateOf(false) }
     val busy = vm.busy || vm.backupBusy
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.pub_section), style = MaterialTheme.typography.titleMedium)
@@ -86,7 +89,26 @@ internal fun PublishSettingsSection(state: Training, vm: TrainingViewModel) {
             OutlinedButton(onClick = { vm.publishNow() }, enabled = !busy) { Text(stringResource(R.string.pub_retry)) }
         }
         vm.publishLastAt?.let { Text(stringResource(R.string.pub_last, it)) }
+        // The way back out, for a group where consent is missing or has been withdrawn. Deliberately at
+        // the bottom: it is the one action here that takes something away.
+        OutlinedButton(
+            onClick = { confirmWithdraw = true },
+            enabled = !busy && !vm.publishWithdrawing && vm.publishServerUrl.isNotBlank(),
+        ) { Text(stringResource(R.string.pub_withdraw)) }
+        Text(stringResource(R.string.pub_withdraw_hint))
+        if (vm.publishWithdrawing) Text(stringResource(R.string.pub_withdrawing))
         StatusMessage(vm.publishMessage)
     }
     if (pairing) PairingSheet(state, vm.publishServerUrl) { pairing = false }
+    if (confirmWithdraw) AlertDialog(
+        onDismissRequest = { confirmWithdraw = false },
+        title = { Text(stringResource(R.string.pub_withdraw_title)) },
+        text = { Text(stringResource(R.string.pub_withdraw_confirm)) },
+        confirmButton = {
+            TextButton(onClick = { confirmWithdraw = false; vm.withdrawFromWeb() }) {
+                Text(stringResource(R.string.pub_withdraw_go))
+            }
+        },
+        dismissButton = { TextButton(onClick = { confirmWithdraw = false }) { Text(stringResource(R.string.dash_cancel)) } },
+    )
 }

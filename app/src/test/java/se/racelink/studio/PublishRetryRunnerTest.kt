@@ -26,6 +26,7 @@ class PublishRetryRunnerTest {
     private class FakeTransport(var outcome: PublishOutcome) : PublishTransport {
         var calls = 0
         override fun publish(endpoint: String, token: String, body: String): PublishOutcome { calls++; return outcome }
+        override fun withdraw(endpoint: String, token: String): PublishOutcome { return outcome }
     }
 
     private fun config(enabled: Boolean = true, url: String = "https://live.example.se", token: String = "tk") =

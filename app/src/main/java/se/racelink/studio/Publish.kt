@@ -15,10 +15,21 @@ import java.security.MessageDigest
 /**
  * Builds the read-only publishing projection sent to the server. This is *not* the backup format:
  * it deliberately omits the audit journal, coaching notes, tags, pending review events and the
- * session archive, so no private coaching data leaves the tablet. Publishing never feeds back into
+ * session archive. Private coaching feedback has its own authenticated projection. Publishing never feeds back into
  * the domain, so a failed publish cannot affect timing.
  */
 internal object PublishProjection {
+    fun coaching(state: Training) = se.racelink.publish.CoachProjection(
+        athletes = state.athletes.map {
+            se.racelink.publish.CoachAthlete(it.id, it.name, it.id in state.participantIds)
+        },
+        runs = state.attempts.map { run ->
+            fun labels(category: TagCategory) = state.tags.filter { it.id in run.tags && it.category == category }.map { it.name }
+            se.racelink.publish.CoachRun(run.id, labels(TagCategory.RUN), labels(TagCategory.NEXT_FOCUS),
+                state.changesFor(run).map { state.markerDescription(it) }, run.note)
+        },
+    )
+
     /**
      * Stable, unguessable per-athlete link token derived from the (random) session id, so the same
      * phone can bookmark one URL for the whole session without the server ever issuing ids.

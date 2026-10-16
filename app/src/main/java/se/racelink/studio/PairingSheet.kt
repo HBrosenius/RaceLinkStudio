@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +34,40 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+
+/** The code always belongs to the skier shown on the card, independent of the next starter. */
+@Composable internal fun SkierQrCode(sessionId: String, athlete: Athlete, serverUrl: String, publishingEnabled: Boolean = true) {
+    val url = remember(sessionId, athlete.id, serverUrl) {
+        personalPageUrl(serverUrl, PublishProjection.tokenFor(sessionId, athlete.id))
+    }
+    var enlarged by rememberSaveable(sessionId, athlete.id, serverUrl) { mutableStateOf(false) }
+    val description = stringResource(R.string.pub_card_qr_description, athlete.name, athlete.bib)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(onClick = { enlarged = true }, color = Color.White, shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.semantics { contentDescription = description }) {
+            QrCodeImage(url, Modifier.padding(4.dp).size(96.dp))
+        }
+        Text(stringResource(R.string.pub_card_qr_hint), style = MaterialTheme.typography.labelSmall)
+        if (!publishingEnabled) Text(stringResource(R.string.pub_card_qr_off), style = MaterialTheme.typography.labelSmall)
+    }
+    val context = LocalContext.current
+    if (enlarged) AlertDialog(onDismissRequest = { enlarged = false },
+        title = { Text(stringResource(R.string.pub_pair_athlete, athlete.bib, athlete.name)) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Surface(color = Color.White, shape = RoundedCornerShape(8.dp)) {
+                    QrCodeImage(url, Modifier.padding(8.dp).size(240.dp).semantics { contentDescription = description })
+                }
+                Text(stringResource(R.string.pub_card_qr_scan))
+                if (!publishingEnabled) Text(stringResource(R.string.pub_card_qr_off_detail))
+            }
+        },
+        confirmButton = { TextButton(onClick = { enlarged = false }) { Text(stringResource(R.string.pub_close)) } },
+        dismissButton = { TextButton(onClick = { copyLink(context, url) }) { Text(stringResource(R.string.pub_pair_copy)) } })
+}
 
 /** Draws [text] as a QR code, crisp at any size (nearest-neighbour scaling of one-pixel modules). */
 @Composable

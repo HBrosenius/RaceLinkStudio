@@ -2,6 +2,11 @@
 <resources>
     <!-- DashboardScreen.kt -->
     <string name="dash_ongoing">Pågår</string>
+    <string name="pub_card_qr_description">Visa större QR-kod för %1$s, nummer %2$d</string>
+    <string name="pub_card_qr_hint">Skanna · tryck för större</string>
+    <string name="pub_card_qr_scan">Skanna för att öppna din personliga webbsida.</string>
+    <string name="pub_card_qr_off">Publicering av</string>
+    <string name="pub_card_qr_off_detail">Publicering är avstängd. Sidan får inga nya resultat förrän publicering aktiveras i Inställningar.</string>
     <string name="dash_closed_readonly">Avslutat · skrivskyddat</string>
     <string name="dash_simulator">Simulator</string>
     <string name="dash_hide_details">Dölj detaljer</string>
@@ -276,7 +281,7 @@
 
     <!-- PublishSettingsUi.kt -->
     <string name="pub_section">Publicering till åkarnas telefoner</string>
-    <string name="pub_note">Valfritt och avstängt som standard. När det är på skickas åkarens egna tider till servern så att hen kan se dem i mobilen. Anteckningar, taggar och granskningshistorik skickas aldrig. Träning visar bara personliga resultat, ingen resultatlista.</string>
+    <string name="pub_note">Valfritt och avstängt som standard. När det är på skickas tider till åkarens personliga mobilsida. Namn, taggar och kommentarer skickas också till den lösenordsskyddade sidan för starttränaren. Åkarens sida visar inte tränarens återkoppling. Granskningshistorik skickas aldrig. Träning visar bara personliga resultat, ingen resultatlista.</string>
     <string name="pub_server_url">Serveradress (https://…)</string>
     <string name="pub_token">Publiceringstoken</string>
     <string name="pub_on">Publicering på</string>
@@ -300,6 +305,12 @@
     <string name="pub_index_title">Länklistan på servern</string>
     <string name="pub_index_password">Lösenord för länklistan</string>
     <string name="pub_index_show">Visa</string>
-    <string name="pub_index_hint">Länklistan är sidan som samlar alla åkares länkar, och den ska barnen inte kunna öppna. Lösenordet sparas för det här passet och följer med vid publicering. Lämna fältet tomt om listan bara ska kunna öppnas från serverdatorn. I webbläsarens ruta spelar användarnamnet ingen roll.</string>
+    <string name="pub_index_hint">Länklistan är sidan som samlar alla åkares länkar, och den ska barnen inte kunna öppna. Lösenordet sparas för det här passet och följer med vid publicering. Tränaren skriver in det en gång i webbläsaren och kan sedan logga ut igen. Lämna fältet tomt om listan bara ska kunna öppnas från serverdatorn.</string>
+    <string name="pub_withdraw">Ta bort från webben</string>
+    <string name="pub_withdraw_hint">Tar bort passet och alla länkar från servern och stänger av publiceringen, så att inget skickas igen förrän du slår på den. Används när samtycke saknas eller dras tillbaka.</string>
+    <string name="pub_withdrawing">Tar bort från servern …</string>
+    <string name="pub_withdraw_title">Ta bort från webben?</string>
+    <string name="pub_withdraw_confirm">Passet och alla åkares länkar tas bort från servern. Publiceringen stängs av, så att inget skickas igen. Du kan slå på den och publicera på nytt när du vill.</string>
+    <string name="pub_withdraw_go">Ta bort</string>
     <string name="pub_close">Klar</string>
 </resources>

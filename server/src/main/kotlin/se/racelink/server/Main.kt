@@ -14,7 +14,9 @@ fun main() {
     if (config.publishToken == ServerConfig.DEV_TOKEN) {
         System.err.println("RACELINK: using the default dev publish token; set RACELINK_PUBLISH_TOKEN before any real event")
     }
-    val store = ProjectionStore()
+    val store = ProjectionStore(dataFile = System.getenv("RACELINK_DATA_FILE")
+        ?.takeIf { it.isNotBlank() }?.let(java.nio.file.Path::of))
+    store.purge(config.retentionHours)
     if (config.retentionHours > 0) {
         // Sweep on a timer as well as per request, so a page nobody opens still expires.
         CoroutineScope(Dispatchers.Default).launch {
@@ -34,7 +36,7 @@ fun main() {
                 "session password; set RACELINK_ADMIN_PASSWORD to open it from any device regardless",
         )
     } else {
-        println("RACELINK: the link index at / needs the session password from the tablet, or RACELINK_ADMIN_PASSWORD")
+        println("RACELINK: the link index at / asks for the session password from the tablet, or RACELINK_ADMIN_PASSWORD")
     }
     val port = System.getenv("PORT")?.toIntOrNull() ?: 8080
     embeddedServer(Netty, port = port, host = "0.0.0.0") { module(config, store) }.start(wait = true)

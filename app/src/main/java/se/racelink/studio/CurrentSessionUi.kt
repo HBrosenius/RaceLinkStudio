@@ -35,7 +35,7 @@ internal data class RunNoteUi(val text: String, val dirty: Boolean, val enabled:
 @Composable internal fun LatestResultCard(s: Training, athlete: Athlete, runs: List<Attempt>, latest: Attempt?, readOnly: Boolean,
     enabled: Boolean, toggleTag: (String, Int) -> Unit, setDnf: (String, Boolean) -> Unit,
     showLatest: () -> Unit, edit: (String) -> Unit, followingLatest: Boolean,
-    selectRun: (String) -> Unit, editNote: (String) -> Unit, noteEditor: RunNoteUi? = null) {
+    selectRun: (String) -> Unit, editNote: (String) -> Unit, noteEditor: RunNoteUi? = null, personalServerUrl: String? = null, personalPublishingEnabled: Boolean = true) {
     val valid = runs.eligible()
     val noTagsLabel = stringResource(R.string.dash_no_tags)
     var categoryName by rememberSaveable(s.sessionId, athlete.id) { mutableStateOf<String?>(null) }
@@ -98,7 +98,14 @@ internal data class RunNoteUi(val text: String, val dirty: Boolean, val enabled:
                 if (roomy) Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { identity(); actions() }
                     Box(Modifier.weight(1.3f)) { comparisons() }
-                } else { identity(); comparisons(); actions() }
+                    personalServerUrl?.takeIf { it.isNotBlank() }?.let { SkierQrCode(s.sessionId, athlete, it, personalPublishingEnabled) }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { identity() }
+                        personalServerUrl?.takeIf { it.isNotBlank() }?.let { SkierQrCode(s.sessionId, athlete, it, personalPublishingEnabled) }
+                    }
+                    comparisons(); actions()
+                }
                 if (latest != null) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(TagCategory.RUN, TagCategory.NEXT_FOCUS).forEach { category ->

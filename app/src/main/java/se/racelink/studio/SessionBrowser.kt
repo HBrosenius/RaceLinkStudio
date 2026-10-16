@@ -71,7 +71,10 @@ import androidx.compose.ui.window.DialogProperties
                         }
                     }
                 } else {
-                    Text("${session.sessionLabel()} · ${session.team} · ${if (session.sessionId == current.sessionId && session.closedAt == null) stringResource(R.string.dash_ongoing_session) else stringResource(R.string.dash_closed_session)}")
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("${session.sessionLabel()} · ${session.team}", Modifier.weight(1f))
+                        SessionStatusBadge(session.sessionId != current.sessionId || session.closedAt != null)
+                    }
                     Text(stringResource(R.string.dash_simulator_made_up), color = MaterialTheme.colorScheme.primary)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { scopedReports = true }) { Text(stringResource(R.string.dash_open_in_reports)) }

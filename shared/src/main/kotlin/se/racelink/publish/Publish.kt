@@ -6,7 +6,8 @@ import kotlinx.serialization.json.Json
 /**
  * The single wire contract between the authoritative Android tablet and the read-only publishing
  * server. It is deliberately a *projection*, not the backup/repository format: no audit journal,
- * no coaching notes, no resolved pending events and no nested session archive ever cross the wire.
+ * no coaching notes, no resolved pending events and no nested session archive in the public envelope.
+ * Private coach feedback travels separately in PublishRequest.coaching.
  *
  * One envelope describes one session at one [PublishEnvelope.revision]. Publishing is idempotent:
  * the server keeps the highest revision it has seen per session id and rejects older ones, so a
@@ -83,6 +84,8 @@ data class PublishEnvelope(
     val runs: List<PublishRun> = emptyList(),
     val standings: List<PublishStanding> = emptyList(),
     val markers: List<PublishMarker> = emptyList(),
+    /** Optional bounded PNG branding; older tablets omit it. No remote image URLs. */
+    val logoPngBase64: String? = null,
 ) {
     companion object { const val SCHEMA_VERSION = 1 }
 }
@@ -102,7 +105,27 @@ data class PublishAck(val sessionId: String, val revision: Long, val accepted: B
  * is how the coach turns the protection off again.
  */
 @Serializable
-data class PublishRequest(val envelope: PublishEnvelope, val indexPassword: String? = null)
+data class PublishRequest(
+    val envelope: PublishEnvelope,
+    val indexPassword: String? = null,
+    /** Private finish-line feedback, never part of the public envelope or personal API. */
+    val coaching: CoachProjection? = null,
+)
+
+@Serializable
+data class CoachAthlete(val id: Int, val name: String, val participating: Boolean = true)
+
+@Serializable
+data class CoachRun(
+    val runId: String,
+    val observations: List<String> = emptyList(),
+    val nextFocus: List<String> = emptyList(),
+    val changes: List<String> = emptyList(),
+    val comment: String = "",
+)
+
+@Serializable
+data class CoachProjection(val athletes: List<CoachAthlete> = emptyList(), val runs: List<CoachRun> = emptyList())
 
 /** Swedish race/result time, three decimals with a comma, matching the tablet's reports. */
 fun formatSeconds(ms: Long): String = "${ms / 1000},${(ms % 1000).toString().padStart(3, '0')}"

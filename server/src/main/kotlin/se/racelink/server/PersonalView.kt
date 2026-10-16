@@ -37,6 +37,11 @@ data class PersonalView(
     /** This skier's own completed runs in order, for the trend chart. Never another skier's. */
     val trend: List<RunTrendPoint> = emptyList(),
     val updatedAt: String,
+    val logoPngBase64: String? = null,
+    /** Exact-time personal best, including ties; a later DNF/incomplete run is never celebrated. */
+    val latestIsBest: Boolean = false,
+    /** Includes DNF/incomplete arrivals; other skiers and ordinary corrections do not advance it. */
+    val latestRecordedSequence: Int = 0,
 )
 
 /** One plotted run: this skier's own run order (1, 2, 3 …), its time, and that time formatted. */
@@ -84,5 +89,13 @@ fun personalView(envelope: PublishEnvelope, athlete: PublishAthlete, namePolicy:
             run.durationMs?.let { RunTrendPoint(index + 1, it, formatSeconds(it)) }
         }.filterNotNull(),
         updatedAt = envelope.publishedAt,
+        logoPngBase64 = envelope.logoPngBase64?.takeIf(::validPublishLogo),
+        latestIsBest = latest != null && own.lastOrNull()?.id == latest.id && latestMs == best?.durationMs,
+        latestRecordedSequence = own.lastOrNull()?.sequence ?: 0,
     )
 }
+
+internal fun validPublishLogo(value: String): Boolean = value.length <= 400_000 && runCatching {
+    val bytes = java.util.Base64.getDecoder().decode(value)
+    bytes.size >= 8 && bytes.take(8) == listOf(137, 80, 78, 71, 13, 10, 26, 10).map { it.toByte() }
+}.getOrDefault(false)

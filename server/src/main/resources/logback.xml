@@ -1,0 +1,18 @@
+<configuration>
+    <!--
+      INFO rather than logback's default DEBUG. At DEBUG the packaged server prints a wall of Netty and
+      Ktor internals for every connection, which drowns the RACELINK lines an operator actually reads
+      and means console output — the closest thing this service has to a log — is more likely to be
+      kept around than it should be. The application itself installs no request logging, so a visitor's
+      address is never written; if you raise this to DEBUG while troubleshooting, put it back.
+    -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{20} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

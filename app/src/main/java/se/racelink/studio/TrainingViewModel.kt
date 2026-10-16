@@ -48,6 +48,41 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
+     * Takes the pass off the web for good: the session and its per-skier links are deleted from the
+     * server, and publishing is switched off in the same breath so the next committed run cannot put
+     * them back. That is what makes consent withdrawal one tap rather than a call to whoever runs the
+     * server, and turning publishing on again is a deliberate act.
+     */
+    fun withdrawFromWeb() {
+        val current = state ?: return
+        if (publishWithdrawing) return
+        publishWithdrawing = true
+        publishMessage = null
+        viewModelScope.launch {
+            try {
+                publishMutex.withLock {
+                    when (val result = withContext(Dispatchers.IO) { publisher.withdraw(current) }) {
+                        is WithdrawResult.Removed -> {
+                            publishSettings.write(PublishConfig(publishServerUrl, publishToken, false, publishBibOnly))
+                            publishEnabled = false
+                            // Nothing is outstanding any more: the page it was waiting for is gone.
+                            publishPending = false
+                            publishFailed = false
+                            publishLastAt = null
+                            publishMessage = result.message
+                        }
+                        is WithdrawResult.Failed -> publishMessage = result.message
+                    }
+                }
+            } finally {
+                publishWithdrawing = false
+            }
+        }
+    }
+
+    fun reportBrandingChanged() { state?.let { publishCommitted(it) } }
+
+    /**
      * Re-reads the publish journal when the app returns to the foreground. A background retry may
      * have flushed an outstanding publish while this screen was away, which would otherwise leave a
      * stale "waiting" or failure line on screen; and if the publish is still outstanding it is
@@ -90,7 +125,7 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     private val appContext = app.applicationContext
     private val publishSettings = PublishConfigStore(app)
     private val publishJournal = PublishStateStore(app)
-    private val publisher = Publisher(publishSettings, publishJournal, HttpPublishTransport())
+    private val publisher = Publisher(publishSettings, publishJournal, HttpPublishTransport(), logo = { publishedReportLogo(app) })
     private val publishMutex = Mutex()
     /** Per-session link-index passwords, read back once so the settings field can be drawn synchronously. */
     private val indexPasswords = mutableMapOf<String, String>()
@@ -106,6 +141,8 @@ class TrainingViewModel(app: Application) : AndroidViewModel(app) {
     var publishLastAt by mutableStateOf<String?>(null); private set
     var publishBibOnly by mutableStateOf(false); private set
     var publishPending by mutableStateOf(false); private set
+    /** True while a withdrawal is in flight, so the button cannot be tapped twice. */
+    var publishWithdrawing by mutableStateOf(false); private set
     /** True while the last attempt failed; used to drop a stale failure line once a retry lands. */
     var publishFailed by mutableStateOf(false); private set
     // Serializes committed writes so rapid commands queue instead of being silently dropped,

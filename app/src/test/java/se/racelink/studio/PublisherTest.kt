@@ -36,14 +36,31 @@ class PublisherTest {
         var lastEndpoint: String? = null
         var lastToken: String? = null
         var lastBody: String? = null
+        var withdrawals = 0
+        var withdrawn: String? = null
         override fun publish(endpoint: String, token: String, body: String): PublishOutcome {
             calls++; lastEndpoint = endpoint; lastToken = token; lastBody = body
+            return outcome
+        }
+        override fun withdraw(endpoint: String, token: String): PublishOutcome {
+            withdrawals++; withdrawn = endpoint; lastToken = token
             return outcome
         }
     }
 
     private fun config(enabled: Boolean = true, url: String = "https://live.example.se/", token: String = "tk") =
         PublishConfig(url, token, enabled)
+
+    @Test fun reportLogoIsPublishedAndRemovalClearsIt() {
+        val transport = FakeTransport(PublishOutcome.Delivered(1, true))
+        var logo: String? = "png-base64"
+        val publisher = Publisher(FakeSettings(config()), FakeJournal(), transport, now = { "t" }, logo = { logo })
+        publisher.publish(demoTraining())
+        assertEquals(logo, PublishJson.decodeRequest(transport.lastBody!!).envelope.logoPngBase64)
+        logo = null
+        publisher.publish(demoTraining())
+        assertNull(PublishJson.decodeRequest(transport.lastBody!!).envelope.logoPngBase64)
+    }
 
     @Test
     fun disabledIsASilentNoOp() {
@@ -154,5 +171,46 @@ class PublisherTest {
         assertTrue(parseAck(401, "") is PublishOutcome.Failed)
         assertTrue(parseAck(500, "boom") is PublishOutcome.Failed)
         assertEquals(PublishOutcome.Delivered(0, true), parseAck(200, "not-json"))
+    }
+
+    @Test
+    fun withdrawalDeletesTheSessionAndSaysPublishingIsOff() {
+        val state = demoTraining()
+        val transport = FakeTransport(PublishOutcome.Delivered(0, true))
+        val journal = FakeJournal()
+        val publisher = Publisher(FakeSettings(config(url = "https://live.example.se/")), journal, transport, now = { "t" })
+
+        val removed = publisher.withdraw(state) as WithdrawResult.Removed
+
+        assertEquals("one call, not a publish", 1, transport.withdrawals)
+        assertEquals(0, transport.calls)
+        assertEquals("https://live.example.se/api/v1/sessions/${state.sessionId}", transport.withdrawn)
+        assertEquals("tk", transport.lastToken)
+        assertTrue("the screen must say nothing will be sent again", removed.message.contains("avstängd"))
+        assertFalse(journal.isPending(state.sessionId))
+    }
+
+    @Test
+    fun withdrawalWithoutAServerIsRefusedBeforeAnyTraffic() {
+        val transport = FakeTransport(PublishOutcome.Delivered(0, true))
+        val publisher = Publisher(FakeSettings(PublishConfig("", "", enabled = true)), FakeJournal(), transport, now = { "t" })
+
+        assertTrue(publisher.withdraw(demoTraining()) is WithdrawResult.Failed)
+        assertEquals(0, transport.withdrawals)
+    }
+
+    @Test
+    fun aFailedWithdrawalKeepsTheJournalAndReportsIt() {
+        val state = demoTraining()
+        val journal = FakeJournal()
+        journal.markPending(state.sessionId)
+        val transport = FakeTransport(PublishOutcome.Failed("timeout"))
+        val publisher = Publisher(FakeSettings(config()), journal, transport, now = { "t" })
+
+        val failed = publisher.withdraw(state) as WithdrawResult.Failed
+
+        assertTrue("the reason reaches the coach", failed.message.contains("timeout"))
+        assertTrue("and it is clear the page may still be there", failed.message.contains("Kunde inte ta bort"))
+        assertTrue("a stale server state is not treated as removed", journal.isPending(state.sessionId))
     }
 }

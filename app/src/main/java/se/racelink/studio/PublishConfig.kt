@@ -11,6 +11,9 @@ internal data class PublishConfig(
 ) {
     private val base get() = serverUrl.trim().trimEnd('/')
     val publishEndpoint: String get() = "$base/api/v1/publish"
+
+    /** The server's handle on one session: DELETE here takes the session and its per-skier links away. */
+    fun sessionEndpoint(sessionId: String): String = "$base/api/v1/sessions/$sessionId"
     val configured: Boolean get() = serverUrl.isNotBlank() && token.isNotBlank()
 }
 

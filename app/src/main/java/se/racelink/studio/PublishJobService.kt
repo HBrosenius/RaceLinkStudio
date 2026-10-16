@@ -14,7 +14,7 @@ internal class PublishJobService : JobService() {
             val settings = PublishConfigStore(applicationContext)
             val journal = PublishStateStore(applicationContext)
             val store = TrainingStore(applicationContext)
-            val runner = PublishRetryRunner(Publisher(settings, journal, HttpPublishTransport()), settings, journal) { store.read() }
+            val runner = PublishRetryRunner(Publisher(settings, journal, HttpPublishTransport(), logo = { publishedReportLogo(applicationContext) }), settings, journal) { store.read() }
             jobFinished(params, runner.run())
         }.start()
         return true

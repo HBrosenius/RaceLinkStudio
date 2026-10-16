@@ -11,6 +11,22 @@ import se.racelink.publish.PublishMode
 import se.racelink.publish.RunStatus
 
 class PublishProjectionTest {
+    @Test fun privateCoachProjectionKeepsTagCategoriesCommentsChangesAndAttendance() {
+        val state = demoTraining().copy(
+            tags = listOf(CoachingTag(101, "Observation", TagCategory.RUN),
+                CoachingTag(102, "Nästa fokus", TagCategory.NEXT_FOCUS), CoachingTag(103, "Ändring", TagCategory.CHANGE)),
+            attempts = listOf(Attempt("private-run", 1, 5, 35000, tags = setOf(101, 102), note = "Privat kommentar")),
+            markers = listOf(Marker(3, "Ny bana", setOf(103))), participantIds = setOf(1), timingEvents = emptyList(),
+        )
+        val coaching = PublishProjection.coaching(state)
+        assertEquals(listOf("Observation"), coaching.runs.single().observations)
+        assertEquals(listOf("Nästa fokus"), coaching.runs.single().nextFocus)
+        assertEquals(listOf("Ny bana · Ändring"), coaching.runs.single().changes)
+        assertEquals("Privat kommentar", coaching.runs.single().comment)
+        assertEquals(setOf(1), coaching.athletes.filter { it.participating }.map { it.id }.toSet())
+        val public = PublishJson.encode(PublishProjection.of(state, 1, "now"))
+        assertTrue(!public.contains("Privat kommentar") && !public.contains("Nästa fokus") && !public.contains("Observation"))
+    }
     @Test
     fun trainingProjectionExposesPersonalRunsOnly() {
         val state = demoTraining()

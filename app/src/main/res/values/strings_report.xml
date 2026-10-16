@@ -9,7 +9,7 @@
 
     <!-- Report logo / branding -->
     <string name="rpt_branding_title">Rapportlogotyp</string>
-    <string name="rpt_branding_description">Valfri bild för PDF och personliga bildrapporter. Sparas bara på denna enhet och ingår inte i träningsbackupen. Välj om den ska inkluderas vid export.</string>
+    <string name="rpt_branding_description">Valfri bild för PDF och personliga bildrapporter. Visas även på åkarnas webbsidor när publicering är aktiverad. Ingår inte i träningsbackupen. Välj om den ska inkluderas vid export.</string>
     <string name="rpt_branding_logo_desc">Lagets rapportlogotyp</string>
     <string name="rpt_choose_logo">Välj logotyp</string>
     <string name="rpt_remove_logo">Ta bort logotyp</string>

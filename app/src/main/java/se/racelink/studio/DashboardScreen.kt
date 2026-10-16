@@ -106,7 +106,11 @@ import kotlinx.coroutines.launch
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Column(Modifier.weight(1f)) {
                 Text(s.sessionName, style = MaterialTheme.typography.titleLarge)
-                Text("${s.sessionDate} · ${if (s.closedAt == null) stringResource(R.string.dash_ongoing) else stringResource(R.string.dash_closed_readonly)} · ${stringResource(R.string.dash_simulator)}", style = MaterialTheme.typography.bodySmall)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(s.sessionDate, style = MaterialTheme.typography.bodySmall)
+                    SessionStatusBadge(s.closedAt != null)
+                    Text("· ${stringResource(R.string.dash_simulator)}", style = MaterialTheme.typography.bodySmall)
+                }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(onClick = { sessionDetails = !sessionDetails }) { Text(if (sessionDetails) stringResource(R.string.dash_hide_details) else stringResource(R.string.dash_session_info)) }
@@ -167,11 +171,11 @@ import kotlinx.coroutines.launch
                 if (skiersCollapsed) PanelHandle(left = true, expand = { skiersCollapsed = false })
                 else AthleteList(s, selected, { id -> guardNote { selected = id; focusedRunId = null } }, Modifier.width(180.dp).fillMaxHeight(), collapse = { skiersCollapsed = true })
                 RunDashboard(s, athlete, runs, latest, valid, improvement, { improvement = it }, { id -> guardNote { editingId = id } }, Modifier.weight(1f), readOnly = s.closedAt != null, tagEnabled = !vm.busy && !vm.backupBusy && s.closedAt == null, onSkierSwipe = { direction -> guardNote { selected = adjacentSkier(s.athletes, selected, direction); focusedRunId = null } }, setDnf = { id, dnf -> vm.quickDnf(id, dnf) }, toggleTag = vm::quickTag, focusedRunId = focusedRunId, selectRun = { id -> guardNote { focusedRunId = id } }, editNote = ::openNote, noteEditor = noteEditor, noteRunId = noteRunId, historyCollapsed = runsCollapsed, setHistoryCollapsed = { runsCollapsed = it },
-                    openParticipants = { guardNote { editSessionParticipants = true; editSession = true } }, chooseNext = { chooseNextSkier = true }, openSimulator = { simulator = true }, editChange = { editingChange = it })
+                    openParticipants = { guardNote { editSessionParticipants = true; editSession = true } }, chooseNext = { chooseNextSkier = true }, openSimulator = { simulator = true }, editChange = { editingChange = it }, personalServerUrl = vm.publishServerUrl, personalPublishingEnabled = vm.publishEnabled)
             } else Column {
                 TextButton(onClick = { chooseSkier = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.dash_showing_athlete, athlete.bib, athlete.name)) }
                 RunDashboard(s, athlete, runs, latest, valid, improvement, { improvement = it }, { id -> guardNote { editingId = id } }, Modifier.fillMaxWidth(), readOnly = s.closedAt != null, tagEnabled = !vm.busy && !vm.backupBusy && s.closedAt == null, onSkierSwipe = { direction -> guardNote { selected = adjacentSkier(s.athletes, selected, direction); focusedRunId = null } }, setDnf = { id, dnf -> vm.quickDnf(id, dnf) }, toggleTag = vm::quickTag, focusedRunId = focusedRunId, selectRun = { id -> guardNote { focusedRunId = id } }, editNote = ::openNote, noteEditor = noteEditor, noteRunId = noteRunId, historyCollapsed = runsCollapsed, setHistoryCollapsed = { runsCollapsed = it },
-                    openParticipants = { guardNote { editSessionParticipants = true; editSession = true } }, chooseNext = { chooseNextSkier = true }, openSimulator = { simulator = true }, editChange = { editingChange = it })
+                    openParticipants = { guardNote { editSessionParticipants = true; editSession = true } }, chooseNext = { chooseNextSkier = true }, openSimulator = { simulator = true }, editChange = { editingChange = it }, personalServerUrl = vm.publishServerUrl, personalPublishingEnabled = vm.publishEnabled)
             }
         }
     }
@@ -289,7 +293,7 @@ import kotlinx.coroutines.launch
     focusedRunId: String? = null, selectRun: ((String?) -> Unit)? = null,
     editNote: (String) -> Unit = {}, noteEditor: RunNoteUi? = null, noteRunId: String? = null,
     historyCollapsed: Boolean? = null, setHistoryCollapsed: ((Boolean) -> Unit)? = null,
-    openParticipants: () -> Unit = {}, chooseNext: () -> Unit = {}, openSimulator: () -> Unit = {}) {
+    openParticipants: () -> Unit = {}, chooseNext: () -> Unit = {}, openSimulator: () -> Unit = {}, personalServerUrl: String? = null, personalPublishingEnabled: Boolean = true) {
     var localHistoryCollapsed by rememberSaveable { mutableStateOf(false) }
     val hideHistory = historyCollapsed ?: localHistoryCollapsed
     fun collapseHistory(value: Boolean) { if (setHistoryCollapsed != null) setHistoryCollapsed(value) else localHistoryCollapsed = value }
@@ -310,7 +314,7 @@ import kotlinx.coroutines.launch
         else {
         LatestResultCard(s, athlete, runs, displayed, readOnly, tagEnabled, toggleTag, setDnf, { chooseRun(null) }, edit,
             followingLatest = (if (selectRun != null) focusedRunId else localRunId) == null, selectRun = { chooseRun(it) }, editNote = editNote,
-            noteEditor = noteEditor.takeIf { noteRunId == displayed?.id })
+            noteEditor = noteEditor.takeIf { noteRunId == displayed?.id }, personalServerUrl = personalServerUrl, personalPublishingEnabled = personalPublishingEnabled)
         Card {
             Column(Modifier.fillMaxWidth().padding(10.dp)) {
                 Text(if (readOnly) stringResource(R.string.dash_development_during_session) else stringResource(R.string.dash_todays_development), style = MaterialTheme.typography.titleMedium)

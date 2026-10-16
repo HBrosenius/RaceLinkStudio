@@ -104,4 +104,32 @@ class HttpPublishTransportTest {
         val outcome = HttpPublishTransport(timeoutMs = 400).publish("http://127.0.0.1:1/api/v1/publish", "t", "{}")
         assertTrue(outcome is PublishOutcome.Failed)
     }
+
+    @Test
+    fun withdrawalSendsAnAuthorizedDeleteAndTreatsAnAlreadyGoneSessionAsGone() {
+        OneShotServer(204, "No Content").use { server ->
+            val outcome = HttpPublishTransport().withdraw("http://127.0.0.1:${server.port}/api/v1/sessions/s-1", "secret")
+
+            assertEquals(PublishOutcome.Delivered(0, true), outcome)
+            assertTrue(server.requestLine.get()!!.startsWith("DELETE /api/v1/sessions/s-1"))
+            assertEquals("Bearer secret", server.authorization.get())
+            assertEquals("a delete carries no body", "", server.receivedBody.get())
+        }
+
+        // A session the server no longer has is the state we were asking for.
+        OneShotServer(404, "Not Found").use { server ->
+            assertEquals(
+                PublishOutcome.Delivered(0, true),
+                HttpPublishTransport().withdraw("http://127.0.0.1:${server.port}/api/v1/sessions/s-1", "secret"),
+            )
+        }
+    }
+
+    @Test
+    fun aRefusedWithdrawalIsAFailureSoTheCoachIsNotToldItWorked() {
+        OneShotServer(401, "Unauthorized").use { server ->
+            val outcome = HttpPublishTransport().withdraw("http://127.0.0.1:${server.port}/api/v1/sessions/s-1", "wrong")
+            assertTrue((outcome as PublishOutcome.Failed).message.contains("Åtkomst nekad"))
+        }
+    }
 }

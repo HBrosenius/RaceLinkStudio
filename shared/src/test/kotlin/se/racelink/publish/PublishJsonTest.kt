@@ -6,6 +6,14 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PublishJsonTest {
+    @Test fun privateCoachingRoundTripsSeparatelyFromPublicEnvelope() {
+        val feedback = CoachProjection(listOf(CoachAthlete(12, "Alma Andersson")),
+            listOf(CoachRun("demo-1", listOf("Observation"), listOf("Fokus"), comment = "Coach only")))
+        val request = PublishRequest(sample(), "password", feedback)
+        assertEquals(request, PublishJson.decodeRequest(PublishJson.encode(request)))
+        assertNull(PublishJson.decodeRequest(PublishJson.encode(PublishRequest(sample()))).coaching)
+        assertTrue(!PublishJson.encode(request.envelope).contains("Coach only"))
+    }
     private fun sample() = PublishEnvelope(
         revision = 7,
         publishedAt = "2026-10-16T09:12:33Z",
@@ -20,6 +28,9 @@ class PublishJsonTest {
 
     @Test fun roundTripsThroughJson() {
         assertEquals(sample(), PublishJson.decode(PublishJson.encode(sample())))
+        val branded = sample().copy(logoPngBase64 = "png-base64")
+        assertEquals(branded, PublishJson.decode(PublishJson.encode(branded)))
+        assertNull(PublishJson.decode(PublishJson.encode(sample()).replace(",\"logoPngBase64\":null", "")).logoPngBase64)
     }
 
     @Test fun decodesForwardCompatibleAdditions() {
