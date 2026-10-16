@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.FileProvider
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -128,34 +129,34 @@ internal class ReportExportViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     val leave = { if (!vm.working) { vm.close(); close() } }
-    EditorDialog(onDismissRequest = leave, title = { Text("Exportera rapport", style = MaterialTheme.typography.headlineSmall) }, text = {
+    EditorDialog(onDismissRequest = leave, title = { Text(stringResource(R.string.rpt_export_title), style = MaterialTheme.typography.headlineSmall) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(vm.scope ?: "Urvalet saknas. Stäng och öppna exporten igen.", style = MaterialTheme.typography.titleMedium)
-            Text("Urvalet fryses när exportfönstret öppnas. Nya resultat ändrar inte den här exporten.", style = MaterialTheme.typography.bodySmall)
+            Text(vm.scope ?: stringResource(R.string.rpt_scope_missing), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.rpt_export_frozen), style = MaterialTheme.typography.bodySmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = format == "PDF", enabled = !vm.working, onClick = { format = "PDF" }, label = { Text("PDF") })
                 FilterChip(selected = format == "CSV", enabled = !vm.working, onClick = { format = "CSV" }, label = { Text("CSV") })
-                if (vm.raceSnapshot == null) FilterChip(selected = format == "PNG", enabled = !vm.working, onClick = { format = "PNG" }, label = { Text("Bild (PNG)") })
+                if (vm.raceSnapshot == null) FilterChip(selected = format == "PNG", enabled = !vm.working, onClick = { format = "PNG" }, label = { Text(stringResource(R.string.rpt_image_png)) })
             }
             val imageAllowed = format != "PNG" || individualImageAllowed(vm.rows.orEmpty())
-            if (format == "PNG") Text(if (imageAllowed) "Personlig bild · ett pass och en åkare. Långa rapporter sammanfogas till en bild (max 6 sidor)." else "Välj ett pass och en åkare i rapportfiltret. PDF/CSV stöder större urval.")
+            if (format == "PNG") Text(if (imageAllowed) stringResource(R.string.rpt_image_personal) else stringResource(R.string.rpt_image_choose_scope))
             if (format != "CSV") {
                 if (vm.raceSnapshot == null) {
-                ExportOption("Inkludera diagram", graphs, !vm.working) { graphs = it }
-                ExportOption("Inkludera coachningstaggar och ändringar", tags, !vm.working) { tags = it }
-                ExportOption("Inkludera anteckningar", notes, !vm.working) { notes = it }
-                } else Text("Resultatlista per klass med placering, åk 1, åk 2 och totaltid/tidsskillnad. Taggar och anteckningar ingår inte.")
-                ExportOption("Inkludera lagets logotyp", includeLogo, !vm.working && !branding.busy && branding.logo != null) { includeLogo = it }
-                if (branding.logo == null) Text("Välj en valfri logotyp i Inställningar. Rapporten fungerar även utan.", style = MaterialTheme.typography.bodySmall)
-                if (vm.raceSnapshot == null) Text("Taggar och anteckningar är avstängda som standard.", style = MaterialTheme.typography.bodySmall)
-                OutlinedButton(enabled = !vm.working && !vm.rows.isNullOrEmpty() && imageAllowed && !branding.busy, onClick = { vm.prepare(format, tags, notes, graphs, preview = true, logo = branding.logo.takeIf { includeLogo }) }) { Text(if (format == "PNG") "Förhandsvisa bild" else "Förhandsvisa PDF") }
-            } else Text(if (vm.raceSnapshot != null) "CSV innehåller klass, placering, båda åken och tävlingsresultatet. Taggar/anteckningar ingår inte." else "CSV innehåller pass, datum, åkare och resultat. Taggar, anteckningar och diagram inkluderas inte.")
-            OutlinedButton(enabled = !vm.working && !vm.rows.isNullOrEmpty() && imageAllowed && !branding.busy, onClick = { vm.prepare(format, tags, notes, graphs, logo = branding.logo.takeIf { includeLogo }, share = true) }) { Text("Dela $format…") }
+                ExportOption(stringResource(R.string.rpt_include_graphs), graphs, !vm.working) { graphs = it }
+                ExportOption(stringResource(R.string.rpt_include_tags), tags, !vm.working) { tags = it }
+                ExportOption(stringResource(R.string.rpt_include_notes), notes, !vm.working) { notes = it }
+                } else Text(stringResource(R.string.rpt_race_export_note))
+                ExportOption(stringResource(R.string.rpt_include_logo), includeLogo, !vm.working && !branding.busy && branding.logo != null) { includeLogo = it }
+                if (branding.logo == null) Text(stringResource(R.string.rpt_logo_hint), style = MaterialTheme.typography.bodySmall)
+                if (vm.raceSnapshot == null) Text(stringResource(R.string.rpt_tags_off_default), style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(enabled = !vm.working && !vm.rows.isNullOrEmpty() && imageAllowed && !branding.busy, onClick = { vm.prepare(format, tags, notes, graphs, preview = true, logo = branding.logo.takeIf { includeLogo }) }) { Text(if (format == "PNG") stringResource(R.string.rpt_preview_image_label) else stringResource(R.string.rpt_preview_pdf_label)) }
+            } else Text(if (vm.raceSnapshot != null) stringResource(R.string.rpt_csv_race_note) else stringResource(R.string.rpt_csv_note))
+            OutlinedButton(enabled = !vm.working && !vm.rows.isNullOrEmpty() && imageAllowed && !branding.busy, onClick = { vm.prepare(format, tags, notes, graphs, logo = branding.logo.takeIf { includeLogo }, share = true) }) { Text(stringResource(R.string.rpt_share_format, format)) }
             if (vm.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             StatusMessage(vm.message)
         }
-    }, confirmButton = { TextButton(enabled = !vm.working && !vm.rows.isNullOrEmpty() && !branding.busy && (format != "PNG" || individualImageAllowed(vm.rows.orEmpty())), onClick = { vm.prepare(format, tags, notes, graphs, logo = branding.logo.takeIf { includeLogo }) }) { Text("Spara $format") } },
-        dismissButton = { TextButton(enabled = !vm.working, onClick = leave) { Text("Stäng") } })
+    }, confirmButton = { TextButton(enabled = !vm.working && !vm.rows.isNullOrEmpty() && !branding.busy && (format != "PNG" || individualImageAllowed(vm.rows.orEmpty())), onClick = { vm.prepare(format, tags, notes, graphs, logo = branding.logo.takeIf { includeLogo }) }) { Text(stringResource(R.string.rpt_save_format, format)) } },
+        dismissButton = { TextButton(enabled = !vm.working, onClick = leave) { Text(stringResource(R.string.rpt_close)) } })
     if (vm.previewOpen) vm.previewFile?.let { file -> if (vm.previewFormat == "PNG") ReportImagePreview(file) { vm.previewOpen = false } else PdfPreview(file) { vm.previewOpen = false } }
 }
 

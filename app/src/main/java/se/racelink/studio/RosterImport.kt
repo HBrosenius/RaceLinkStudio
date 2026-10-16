@@ -86,5 +86,5 @@ internal fun Training.importRosterCsv(text: String): Training {
     val maxId = (roster + athletes + archivedSessions.flatMap { it.roster + it.athletes }).maxOfOrNull { it.id } ?: 0
     require(maxId.toLong() + preview.additions.size <= Int.MAX_VALUE) { "Åkar-ID kan inte skapas." }
     val added = preview.additions.mapIndexed { i, row -> Athlete(maxId + i + 1, row.bib!!, row.name) }
-    return copy(roster = roster + added, audit = audit + "${java.time.Instant.now()} | Åkarlista importerad | ${added.size} nya åkare; aktuella deltagare och historik behålls")
+    return copy(roster = roster + added, audit = audit + AuditEntry.now(AuditKind.ROSTER_IMPORTED, "Åkarlista importerad | ${added.size} nya åkare; aktuella deltagare och historik behålls"))
 }

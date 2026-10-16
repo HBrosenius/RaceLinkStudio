@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
@@ -67,10 +68,10 @@ internal class ReportBrandingViewModel(app: Application) : AndroidViewModel(app)
 @Composable internal fun ReportBrandingSettings(vm: ReportBrandingViewModel = viewModel()) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), vm::select)
     HorizontalDivider()
-    Text("Rapportlogotyp", style = MaterialTheme.typography.titleMedium)
-    Text("Valfri bild för PDF och personliga bildrapporter. Sparas bara på denna enhet och ingår inte i träningsbackupen. Välj om den ska inkluderas vid export.")
-    vm.logo?.let { Image(it.asImageBitmap(), "Lagets rapportlogotyp", Modifier.size(96.dp)) }
-    OutlinedButton(enabled = !vm.busy, onClick = { picker.launch(arrayOf("image/png", "image/jpeg", "image/webp")) }) { Text("Välj logotyp") }
-    if (vm.logo != null) TextButton(enabled = !vm.busy, onClick = vm::remove) { Text("Ta bort logotyp") }
+    Text(stringResource(R.string.rpt_branding_title), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.rpt_branding_description))
+    vm.logo?.let { Image(it.asImageBitmap(), stringResource(R.string.rpt_branding_logo_desc), Modifier.size(96.dp)) }
+    OutlinedButton(enabled = !vm.busy, onClick = { picker.launch(arrayOf("image/png", "image/jpeg", "image/webp")) }) { Text(stringResource(R.string.rpt_choose_logo)) }
+    if (vm.logo != null) TextButton(enabled = !vm.busy, onClick = vm::remove) { Text(stringResource(R.string.rpt_remove_logo)) }
     StatusMessage(vm.message)
 }

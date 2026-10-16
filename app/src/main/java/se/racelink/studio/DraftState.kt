@@ -5,6 +5,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -19,15 +20,15 @@ internal val TagListSaver = Saver<List<CoachingTag>, String>(
 
 @Composable internal fun draftClose(dirty: Boolean, enabled: Boolean, close: () -> Unit): () -> Unit {
     var confirm by rememberSaveable { mutableStateOf(false) }
-    if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text("Lämna utan att spara?") },
-        text = { Text("Du har osparade ändringar.") },
-        confirmButton = { TextButton(enabled = enabled, onClick = { confirm = false; close() }) { Text("Kasta ändringar") } },
-        dismissButton = { TextButton(onClick = { confirm = false }) { Text("Fortsätt redigera") } })
+    if (confirm) AlertDialog(onDismissRequest = { confirm = false }, title = { Text(stringResource(R.string.dash_leave_without_saving)) },
+        text = { Text(stringResource(R.string.dash_unsaved_changes)) },
+        confirmButton = { TextButton(enabled = enabled, onClick = { confirm = false; close() }) { Text(stringResource(R.string.dash_discard_changes)) } },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.dash_continue_editing)) } })
     return { if (enabled) { if (dirty) confirm = true else close() } }
 }
 
 @Composable internal fun SaveFeedback(enabled: Boolean, error: String?) {
-    if (!enabled) Text("Sparar…", Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+    if (!enabled) Text(stringResource(R.string.dash_saving), Modifier.semantics { liveRegion = LiveRegionMode.Polite })
     error?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.error) }
 }
 

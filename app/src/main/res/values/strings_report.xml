@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PDF preview -->
+    <string name="rpt_pdf_page">PDF · Sida %1$d av %2$d</string>
+    <string name="rpt_pdf_page_desc">Rapport sida %1$d</string>
+    <string name="rpt_previous">Föregående</string>
+    <string name="rpt_next">Nästa</string>
+    <string name="rpt_close">Stäng</string>
+
+    <!-- Report logo / branding -->
+    <string name="rpt_branding_title">Rapportlogotyp</string>
+    <string name="rpt_branding_description">Valfri bild för PDF och personliga bildrapporter. Sparas bara på denna enhet och ingår inte i träningsbackupen. Välj om den ska inkluderas vid export.</string>
+    <string name="rpt_branding_logo_desc">Lagets rapportlogotyp</string>
+    <string name="rpt_choose_logo">Välj logotyp</string>
+    <string name="rpt_remove_logo">Ta bort logotyp</string>
+
+    <!-- Report export -->
+    <string name="rpt_export_title">Exportera rapport</string>
+    <string name="rpt_scope_missing">Urvalet saknas. Stäng och öppna exporten igen.</string>
+    <string name="rpt_export_frozen">Urvalet fryses när exportfönstret öppnas. Nya resultat ändrar inte den här exporten.</string>
+    <string name="rpt_image_png">Bild (PNG)</string>
+    <string name="rpt_image_personal">Personlig bild · ett pass och en åkare. Långa rapporter sammanfogas till en bild (max 6 sidor).</string>
+    <string name="rpt_image_choose_scope">Välj ett pass och en åkare i rapportfiltret. PDF/CSV stöder större urval.</string>
+    <string name="rpt_include_graphs">Inkludera diagram</string>
+    <string name="rpt_include_tags">Inkludera coachningstaggar och ändringar</string>
+    <string name="rpt_include_notes">Inkludera anteckningar</string>
+    <string name="rpt_race_export_note">Resultatlista per klass med placering, åk 1, åk 2 och totaltid/tidsskillnad. Taggar och anteckningar ingår inte.</string>
+    <string name="rpt_include_logo">Inkludera lagets logotyp</string>
+    <string name="rpt_logo_hint">Välj en valfri logotyp i Inställningar. Rapporten fungerar även utan.</string>
+    <string name="rpt_tags_off_default">Taggar och anteckningar är avstängda som standard.</string>
+    <string name="rpt_preview_image_label">Förhandsvisa bild</string>
+    <string name="rpt_preview_pdf_label">Förhandsvisa PDF</string>
+    <string name="rpt_csv_race_note">CSV innehåller klass, placering, båda åken och tävlingsresultatet. Taggar/anteckningar ingår inte.</string>
+    <string name="rpt_csv_note">CSV innehåller pass, datum, åkare och resultat. Taggar, anteckningar och diagram inkluderas inte.</string>
+    <string name="rpt_share_format">Dela %1$s…</string>
+    <string name="rpt_save_format">Spara %1$s</string>
+
+    <!-- Image preview -->
+    <string name="rpt_preview_image_title">Förhandsvisa bild · PNG</string>
+    <string name="rpt_image_desc">Personlig rapportbild</string>
+</resources>

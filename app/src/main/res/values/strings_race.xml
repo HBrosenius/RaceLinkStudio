@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- RaceScreen.kt -->
+    <string name="race_preliminary_results">Preliminära resultat · åk %1$d aktivt</string>
+    <string name="race_finished_readonly">Avslutad tävling · skrivskyddad</string>
+    <string name="race_format_total_help">Lägsta totaltid från två fullföljda åk vinner inom varje klass.</string>
+    <string name="race_format_diff_help">Minsta absoluta tidsskillnaden mellan två fullföljda åk vinner inom varje klass.</string>
+    <string name="race_dnf_note">DNF/saknat åk ger ingen slutplacering. Lika resultat delar placering.</string>
+    <string name="race_times_precision_note">Tider och placeringar använder lagrad millisekundprecision.</string>
+    <string name="race_register_run">Registrera åk %1$d</string>
+    <string name="race_next_athlete">Nästa åkare: %1$s</string>
+    <string name="race_choose">Välj</string>
+    <string name="race_open_simulator">Öppna simulator</string>
+    <string name="race_edit_race">Redigera tävling</string>
+    <string name="race_export_all_classes">Exportera alla klasser</string>
+    <string name="race_hide_recorded">Dölj registrerade resultat</string>
+    <string name="race_manage_recorded_count">Hantera registrerade resultat (%1$d)</string>
+    <string name="race_unassigned_warning">%1$d extraresultat saknar åktilldelning. Tilldela eller undanta dem under Hantera registrerade resultat före avslut.</string>
+    <string name="race_all_classes">Alla klasser</string>
+    <string name="race_placement">Placering %1$d</string>
+    <string name="race_no_placement">Ingen slutplacering</string>
+    <string name="race_run_pair">"Åk 1: %1$s     Åk 2: %2$s"</string>
+    <string name="race_dnf_run">DNF åk %1$d · %2$s</string>
+    <string name="race_reset_run">Återställ åk %1$d · %2$s</string>
+    <string name="race_result_label">Resultat %1$d · %2$s</string>
+    <string name="race_competition_run">Tävlingsåk %1$d</string>
+    <string name="race_excluded_result">Undantaget extraresultat</string>
+    <string name="race_missing_assignment">Saknar åktilldelning</string>
+    <string name="race_assign_run">Tilldela åk %1$d · resultat %2$d</string>
+    <string name="race_remove_assignment">Ta bort tilldelning · resultat %1$d</string>
+    <string name="race_exclude_result">Undanta extraresultat %1$d</string>
+    <string name="race_edit_athlete_result">Rätta åkare · resultat %1$d</string>
+    <string name="race_choose_next_athlete">Välj nästa tävlingsåkare</string>
+
+    <!-- RaceSetup.kt -->
+    <string name="race_start_race">Starta tävling</string>
+    <string name="race_simulator_note">Simulator · ingen timer är ansluten. Befintliga pass sparas i historiken när en ny tävling startas.</string>
+    <string name="race_competition_name">Tävlingsnamn</string>
+    <string name="race_competition_date">Tävlingsdatum</string>
+    <string name="race_competition_format">Tävlingsform</string>
+    <string name="race_total_help">Åk 1 + åk 2. Lägsta totaltid vinner inom klassen.</string>
+    <string name="race_diff_help">Absolut skillnad mellan åk 1 och åk 2. Minsta skillnaden vinner inom klassen, oavsett vilket åk som var snabbast.</string>
+    <string name="race_two_runs_required">Två fullföljda åk krävs. DNF ger ingen slutplacering. Exakt lika resultat delar placering.</string>
+    <string name="race_classes_label">Klasser · ett namn per rad</string>
+    <string name="race_participants_note">Välj deltagare och klass. Åkare med registrerade resultat kan inte tas bort. Lagets åkarlista hanteras i Inställningar.</string>
+    <string name="race_search_participants">Sök deltagare</string>
+    <string name="race_class_label">Klass: %1$s</string>
+    <string name="race_choose_class">Välj klass</string>
+    <string name="race_validation_hint">Ange namn/datum, unika klassnamn och minst en deltagare. Varje deltagare behöver en giltig klass.</string>
+    <string name="race_save_race">Spara tävling</string>
+    <string name="race_cancel">Avbryt</string>
+
+    <!-- ReviewScreen.kt -->
+    <string name="race_review_header">Resultatgranskning · %1$d väntande</string>
+    <string name="race_to_current_session">Till aktuellt pass</string>
+    <string name="race_review_note">Ogranskade händelser ingår inte i åkarnas resultat eller rapporter. Ursprungliga uppgifter sparas även efter beslut.</string>
+    <string name="race_to_review">Att granska</string>
+    <string name="race_decision_history">Beslutshistorik</string>
+    <string name="race_simulate_unknown">Simulera okänt nummer</string>
+    <string name="race_simulate_uncertain">Simulera osäker målgång</string>
+    <string name="race_no_decisions">Inga granskningsbeslut ännu.</string>
+    <string name="race_no_pending_review">Inga resultat väntar på granskning.</string>
+    <string name="race_original_number">Original: nummer %1$d · %2$s</string>
+    <string name="race_hide_original">Dölj originaluppgifter</string>
+    <string name="race_show_original">Visa originaluppgifter</string>
+    <string name="race_event_detail">Händelse %1$s · Ordningsnummer %2$d</string>
+    <string name="race_check_duplicate">Kontrollera om resultatet redan finns. Välj ett befintligt åk om det är en dubblett.</string>
+    <string name="race_check_assign">Kontrollera vem som gjorde åket och tilldela rätt åkare. Avvisa om händelsen inte ska bli ett åk.</string>
+    <string name="race_choose_athlete">Välj åkare</string>
+    <string name="race_assign_athlete">Tilldela åkare</string>
+    <string name="race_mark_duplicate">Markera dubblett</string>
+    <string name="race_reject_event">Avvisa händelse</string>
+    <string name="race_assigned">Tilldelad: %1$s · %2$s</string>
+    <string name="race_duplicate_of">Dubblett av: %1$s</string>
+    <string name="race_rejected_no_run">Avvisad · inget åk skapat</string>
+    <string name="race_auto_matched">Automatiskt matchad</string>
+    <string name="race_decision_at">Beslut: %1$s</string>
+    <string name="race_choose_existing_run">Välj befintligt åk</string>
+    <string name="race_search_name_number_run">Sök namn, nummer eller åk</string>
+    <string name="race_no_matching_runs">Inga åk matchar sökningen.</string>
+    <string name="race_close">Stäng</string>
+    <string name="race_confirm_assign">Tilldela %1$s?</string>
+    <string name="race_confirm_duplicate">Dubblett av %1$s?</string>
+    <string name="race_confirm_reject">Avvisa händelsen?</string>
+    <string name="race_assign_explanation">Ett åk skapas med den ursprungliga tiden. Händelsen och beslutet sparas i historiken.</string>
+    <string name="race_duplicate_explanation">Händelsen kopplas till %1$s. Inget nytt åk skapas.</string>
+    <string name="race_reject_explanation">Inget åk skapas. Ursprungshändelsen och beslutet sparas i historiken.</string>
+    <string name="race_confirm">Bekräfta</string>
+
+    <!-- RosterScreen.kt -->
+    <string name="race_fetch_template">Hämta upplägg från pass</string>
+    <string name="race_search_sessions">Sök pass, datum eller plats</string>
+    <string name="race_no_matching_sessions">Inga pass matchar sökningen.</string>
+    <string name="race_participants_choose_template">%1$d deltagare · välj upplägg</string>
+    <string name="race_roster_title">Lagets åkarlista</string>
+    <string name="race_import_csv">Importera CSV</string>
+    <string name="race_search_name_number">Sök namn eller nummer</string>
+    <string name="race_active_count">Aktiva (%1$d)</string>
+    <string name="race_archived_count">Arkiverade (%1$d)</string>
+    <string name="race_archive_note">Arkivering gäller framtida pass. Deltagande i aktuellt pass och historiska namn, nummer och åk behålls.</string>
+    <string name="race_no_athletes_selection">Inga åkare i detta urval.</string>
+    <string name="race_participates_current">Deltar i aktuellt pass</string>
+    <string name="race_reactivate_action_desc">Återaktivera %1$s, nummer %2$d</string>
+    <string name="race_archive_action_desc">Arkivera %1$s, nummer %2$d</string>
+    <string name="race_reactivate">Återaktivera</string>
+    <string name="race_archive">Arkivera</string>
+    <string name="race_back_to_settings">Tillbaka till inställningar</string>
+    <string name="race_reactivate_question">Återaktivera %1$s?</string>
+    <string name="race_archive_question">Arkivera %1$s?</string>
+    <string name="race_archive_confirm_note">Åkarens historik och deltagande i aktuellt pass behålls. Bara lagets urval för kommande pass ändras.</string>
+
+    <!-- RosterImportUi.kt -->
+    <string name="race_import_roster_title">Importera åkarlista</string>
+    <string name="race_import_format_note">UTF-8 CSV · max 1 MB / 5000 åkare. Rubriker: Nummer;Namn. Även komma och citerade fält accepteras.</string>
+    <string name="race_import_example">Exempel:\nNummer;Namn\n101;Anna Svensson\n102;Erik Andersson</string>
+    <string name="race_import_new_athletes_note">Nya åkare läggs i lagets lista för framtida pass. Välj dem som deltagare när det behövs. Aktuella deltagare och historik ändras inte.</string>
+    <string name="race_choose_csv_file">Välj CSV-fil</string>
+    <string name="race_import_preview">%1$d nya · %2$d finns redan · %3$d fel</string>
+    <string name="race_import_fix_errors">Rätta felen och välj filen igen. Inget importeras innan alla rader är giltiga.</string>
+    <string name="race_import_row">Rad %1$d · %2$s · %3$s</string>
+    <string name="race_row_exists">Finns redan · lämnas oförändrad</string>
+    <string name="race_row_new">Ny åkare</string>
+    <string name="race_import_count">Importera %1$d åkare</string>
+
+    <!-- TrendChart.kt -->
+    <string name="race_show_tags">Visa taggar</string>
+    <string name="race_chart_options">Diagramval</string>
+    <string name="race_tagged_only">Bara taggade åk</string>
+    <string name="race_choose_run">Välj åk</string>
+    <string name="race_zoom_in">Zooma in</string>
+    <string name="race_zoom_out">Zooma ut</string>
+    <string name="race_show_all_runs">Visa alla åk</string>
+    <string name="race_pan_earlier">Flytta till tidigare åk</string>
+    <string name="race_pan_later">Flytta till senare åk</string>
+    <string name="race_previous_athlete">Föregående åkare</string>
+    <string name="race_next_athlete_action">Nästa åkare</string>
+    <string name="race_no_runs_in_chart">Inga åk att visa i diagrammet.</string>
+    <string name="race_chart_desc">Utvecklingsdiagram med %1$d åk. Tryck på ett åk eller använd Diagramval för åkval och zoom.</string>
+    <string name="race_change_single">◆ %1$s</string>
+    <string name="race_change_group">◆ %1$d ändringar · visa</string>
+    <string name="race_show_change">Visa ändring</string>
+    <string name="race_tags_per_run">Taggar per åk</string>
+    <string name="race_no_tags_yet">Inga taggar på åken ännu.</string>
+    <string name="race_run_number">Åk %1$d</string>
+    <string name="race_tap_run_details">Tryck på ett åk för detaljer</string>
+    <string name="race_tap_run_timecard">Tryck på ett åk för tidskortet</string>
+    <string name="race_zoom_suffix">" · %1$s× zoom"</string>
+    <string name="race_pinch_to_zoom">" · nyp för att zooma"</string>
+    <string name="race_run_number_time">Åk %1$d · %2$s</string>
+    <string name="race_chart_changes">Ändringar i diagrammet</string>
+    <string name="race_after_result">Efter resultat %1$d: %2$s</string>
+    <string name="race_no_tags">Inga taggar</string>
+    <string name="race_no_note">Ingen anteckning</string>
+</resources>

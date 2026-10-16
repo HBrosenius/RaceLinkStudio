@@ -61,7 +61,7 @@ fun Training.resolveTiming(id: String, decision: TimingDecision, athleteId: Int?
     val resolved = old.copy(decision = decision, athleteId = if (decision == TimingDecision.ASSIGNED) athleteId else null,
         attemptId = attemptId, decidedAt = java.time.Instant.now().toString())
     return result.copy(timingEvents = timingEvents.map { if (it.id == id) resolved else it },
-        audit = audit + "${resolved.decidedAt} | Resultatgranskning | $old -> $resolved")
+        audit = audit + AuditEntry(resolved.decidedAt!!, AuditKind.TIMING_DECIDED, "Resultatgranskning | $old -> $resolved"))
 }
 
 fun Training.simulateReview(ambiguous: Boolean): Training {

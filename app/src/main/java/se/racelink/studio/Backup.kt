@@ -23,7 +23,7 @@ internal fun readBackup(input: InputStream): Training {
 
 internal fun encodeBackup(state: Training): String {
     validateBackupState(state)
-    return JSONObject().put("format", "racelink-studio-demo").put("version", 7)
+    return JSONObject().put("format", "racelink-studio-demo").put("version", 8)
         .put("createdAt", Instant.now().toString()).put("state", TrainingJson.encode(state)).toString(2)
         .also { require(it.toByteArray(Charsets.UTF_8).size <= MAX_BACKUP_BYTES) { "Säkerhetskopian är för stor (max 16 MB)" } }
 }
@@ -44,13 +44,17 @@ internal fun decodeBackup(text: String): Training {
     val root = JSONObject(text)
     require(root.getString("format") == "racelink-studio-demo") { "Detta är inte en RaceLink-säkerhetskopia" }
     val version = root.getInt("version")
-    require(version in 1..7) { "Säkerhetskopians version stöds inte" }
+    require(version in 1..8) { "Säkerhetskopians version stöds inte" }
     val state = root.getJSONObject("state")
     val required = listOf("sessionId", "sessionDate", "sessionName", "location", "course", "trainingType", "roster", "participantIds", "archivedSessions")
     fun checkFields(o: JSONObject, archived: Boolean = false) {
         required.forEach { require(o.has(it) && !o.isNull(it)) { "Säkerhetskopian saknar $it" } }
         if (version >= 6) require(o.has("archivedRosterIds") && !o.isNull("archivedRosterIds")) { "Arkiveringsstatus saknas" }
         if (version >= 7) require(o.has("race")) { "Tävlingsläge saknas" }
+        if (version >= 8) {
+            val audit = o.getJSONArray("audit")
+            (0 until audit.length()).forEach { require(audit.get(it) is JSONObject) { "Granskningsposter saknar typ" } }
+        }
         if (version >= 5) {
             val markers = o.getJSONArray("markers")
             (0 until markers.length()).forEach { require(markers.getJSONObject(it).has("tags")) { "Ändringstaggar saknas" } }

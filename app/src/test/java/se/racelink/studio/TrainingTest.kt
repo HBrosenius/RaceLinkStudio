@@ -11,7 +11,7 @@ class TrainingTest {
         assertEquals(original.attempts, removed.attempts)
         assertEquals(listOf(original.markers[1]), removed.markers)
         assertEquals("Keep me", removed.tagDescription(removed.attempts.last(), TagCategory.CHANGE))
-        assertTrue(removed.audit.last().contains("Remove me"))
+        assertTrue(removed.audit.last().detail.contains("Remove me"))
         assertEquals(removed, decodeBackup(encodeBackup(removed)))
         assertTrue(runCatching { original.removeChange(9) }.isFailure)
         assertTrue(runCatching { original.copy(closedAt = java.time.Instant.now().toString()).removeChange(0) }.isFailure)
@@ -294,7 +294,7 @@ class TrainingTest {
         assertFalse(output.contains("Teknikfokus"))
     }
     @Test fun newSessionsPreserveArchivedEvidenceAndStartEmpty() {
-        val original = demoTraining().copy(audit = listOf("Rättelse"), pending = listOf("seed-0"))
+        val original = demoTraining().copy(audit = listOf(AuditEntry("2026-10-15T10:00:00Z", AuditKind.LEGACY, "Rättelse")), pending = listOf("seed-0"))
         val next = original.startNewSession()
         assertNotEquals(original.sessionId, next.sessionId)
         assertTrue(next.attempts.isEmpty())

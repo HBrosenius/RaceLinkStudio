@@ -16,6 +16,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -119,13 +120,13 @@ internal fun createReportPdf(paragraphs: List<String>, logo: Bitmap? = null): By
         Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
             Column(Modifier.padding(16.dp)) {
                 FlowRow {
-                    Text("PDF · Sida ${index + 1} av $count")
-                    TextButton(onClick = { index-- }, enabled = index > 0) { Text("Föregående") }
-                    TextButton(onClick = { index++ }, enabled = index < count - 1) { Text("Nästa") }
-                    TextButton(onClick = close) { Text("Stäng") }
+                    Text(stringResource(R.string.rpt_pdf_page, index + 1, count))
+                    TextButton(onClick = { index-- }, enabled = index > 0) { Text(stringResource(R.string.rpt_previous)) }
+                    TextButton(onClick = { index++ }, enabled = index < count - 1) { Text(stringResource(R.string.rpt_next)) }
+                    TextButton(onClick = close) { Text(stringResource(R.string.rpt_close)) }
                 }
                 error?.let { Text(it) }
-                bitmap?.let { Image(it.asImageBitmap(), "Rapport sida ${index + 1}", Modifier.fillMaxWidth().weight(1f)) }
+                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.rpt_pdf_page_desc, index + 1), Modifier.fillMaxWidth().weight(1f)) }
             }
         }
     }

@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.json.JSONObject
 
@@ -37,20 +38,20 @@ private val RaceClassesSaver = Saver<Map<Int, String>, String>(save = { JSONObje
         date != (if (editing) current.sessionDate else java.time.LocalDate.now().toString()) || format != (original?.format ?: RaceFormat.TOTAL) ||
         classesText != (original?.classes?.joinToString("\n") ?: "Öppen") || assignments != (original?.athleteClasses ?: initialParticipants.associateWith { "Öppen" })
     val leave = draftClose(dirty, enabled, close)
-    EditorDialog(leave, title = { Text(if (editing) "Redigera tävling" else "Starta tävling", style = MaterialTheme.typography.headlineSmall) }, text = {
+    EditorDialog(leave, title = { Text(if (editing) stringResource(R.string.race_edit_race) else stringResource(R.string.race_start_race), style = MaterialTheme.typography.headlineSmall) }, text = {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Simulator · ingen timer är ansluten. Befintliga pass sparas i historiken när en ny tävling startas.")
-            OutlinedTextField(name, { name = it }, enabled = enabled, label = { Text("Tävlingsnamn") }, modifier = Modifier.fillMaxWidth())
-            DateInput(date, { date = it }, "Tävlingsdatum")
-            Text("Tävlingsform", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.race_simulator_note))
+            OutlinedTextField(name, { name = it }, enabled = enabled, label = { Text(stringResource(R.string.race_competition_name)) }, modifier = Modifier.fillMaxWidth())
+            DateInput(date, { date = it }, stringResource(R.string.race_competition_date))
+            Text(stringResource(R.string.race_competition_format), style = MaterialTheme.typography.titleMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { RaceFormat.entries.forEach { f ->
                 FilterChip(selected = format == f, enabled = enabled && (!editing || current.attempts.isEmpty()), onClick = { formatName = f.name }, label = { Text(f.label) })
             } }
-            Text(if (format == RaceFormat.TOTAL) "Åk 1 + åk 2. Lägsta totaltid vinner inom klassen." else "Absolut skillnad mellan åk 1 och åk 2. Minsta skillnaden vinner inom klassen, oavsett vilket åk som var snabbast.")
-            Text("Två fullföljda åk krävs. DNF ger ingen slutplacering. Exakt lika resultat delar placering.")
-            OutlinedTextField(classesText, { classesText = it }, enabled = enabled, label = { Text("Klasser · ett namn per rad") }, modifier = Modifier.fillMaxWidth())
-            Text("Välj deltagare och klass. Åkare med registrerade resultat kan inte tas bort. Lagets åkarlista hanteras i Inställningar.")
-            OutlinedTextField(query, { query = it }, label = { Text("Sök deltagare") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Text(if (format == RaceFormat.TOTAL) stringResource(R.string.race_total_help) else stringResource(R.string.race_diff_help))
+            Text(stringResource(R.string.race_two_runs_required))
+            OutlinedTextField(classesText, { classesText = it }, enabled = enabled, label = { Text(stringResource(R.string.race_classes_label)) }, modifier = Modifier.fillMaxWidth())
+            Text(stringResource(R.string.race_participants_note))
+            OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.race_search_participants)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             findSkiers(current.roster.filter { it.id !in current.archivedRosterIds || it.id in participants }, query).forEach { skier ->
                 Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
                     FilterChip(selected = skier.id in participants, enabled = enabled && (!editing || current.attempts.none { it.athleteId == skier.id }), onClick = {
@@ -58,14 +59,15 @@ private val RaceClassesSaver = Saver<Map<Int, String>, String>(save = { JSONObje
                         else { participants = participants + skier.id; if (assignments[skier.id] !in classes && classes.size == 1) assignments = assignments + (skier.id to classes.single()) }
                     }, label = { Text("${skier.bib} · ${skier.name}") })
                     if (skier.id in participants) Box {
-                        OutlinedButton(enabled = enabled, onClick = { menuId = skier.id }) { Text("Klass: ${assignments[skier.id]?.takeIf { it in classes } ?: "Välj klass"}") }
+                        val classLabel = assignments[skier.id]?.takeIf { it in classes } ?: stringResource(R.string.race_choose_class)
+                        OutlinedButton(enabled = enabled, onClick = { menuId = skier.id }) { Text(stringResource(R.string.race_class_label, classLabel)) }
                         DropdownMenu(expanded = menuId == skier.id, onDismissRequest = { menuId = null }) { classes.forEach { name ->
                             DropdownMenuItem(text = { Text(name) }, onClick = { assignments = assignments + (skier.id to name); menuId = null })
                         } }
                     }
                 } }
             }
-            if (!valid) Text("Ange namn/datum, unika klassnamn och minst en deltagare. Varje deltagare behöver en giltig klass.")
+            if (!valid) Text(stringResource(R.string.race_validation_hint))
             SaveFeedback(enabled, error ?: formError)
         }
     }, confirmButton = { Button(enabled = enabled && valid, onClick = {
@@ -75,5 +77,5 @@ private val RaceClassesSaver = Saver<Map<Int, String>, String>(save = { JSONObje
             base.configureRace(RaceConfig(format, classes, assignments.filterKeys { it in participants }, original?.activeRound ?: 1,
                 original?.roundByAttempt.orEmpty(), original?.unusedAttemptIds.orEmpty()))
         }.onSuccess(save).onFailure { formError = it.message }
-    }) { Text(if (editing) "Spara tävling" else "Starta tävling") } }, dismissButton = { TextButton(enabled = enabled, onClick = leave) { Text("Avbryt") } })
+    }) { Text(if (editing) stringResource(R.string.race_save_race) else stringResource(R.string.race_start_race)) } }, dismissButton = { TextButton(enabled = enabled, onClick = leave) { Text(stringResource(R.string.race_cancel)) } })
 }

@@ -8,6 +8,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import android.content.res.Configuration
 import java.util.Locale
 import androidx.compose.ui.unit.dp
@@ -28,8 +29,8 @@ private val SwedishDatePickerSaver = Saver<DatePickerState, ArrayList<Long>>(
     var calendar by rememberSaveable { mutableStateOf(false) }
     val valid = dateMillis(value) != null
     OutlinedTextField(value, change, label = { Text(label) }, singleLine = true, enabled = enabled,
-        isError = !valid, supportingText = { Text(if (valid) "ÅÅÅÅ-MM-DD" else "Ange ett giltigt datum som ÅÅÅÅ-MM-DD") },
-        trailingIcon = { TextButton(enabled = enabled, onClick = { calendar = true }) { Text("Kalender") } }, modifier = Modifier.fillMaxWidth())
+        isError = !valid, supportingText = { Text(if (valid) stringResource(R.string.dash_date_format_hint) else stringResource(R.string.dash_enter_valid_date)) },
+        trailingIcon = { TextButton(enabled = enabled, onClick = { calendar = true }) { Text(stringResource(R.string.dash_calendar)) } }, modifier = Modifier.fillMaxWidth())
     if (calendar) {
         val context = LocalContext.current
         val swedish = remember(context) {
@@ -42,9 +43,9 @@ private val SwedishDatePickerSaver = Saver<DatePickerState, ArrayList<Long>>(
         DatePickerDialog(onDismissRequest = { calendar = false },
             confirmButton = { TextButton(enabled = picker.selectedDateMillis != null, onClick = {
                 picker.selectedDateMillis?.let { change(dateFromMillis(it)) }; calendar = false
-            }) { Text("Välj datum") } }, dismissButton = { TextButton(onClick = { calendar = false }) { Text("Avbryt") } }) {
+            }) { Text(stringResource(R.string.dash_choose_date)) } }, dismissButton = { TextButton(onClick = { calendar = false }) { Text(stringResource(R.string.dash_cancel)) } }) {
             CompositionLocalProvider(LocalContext provides swedish, LocalConfiguration provides swedish.resources.configuration) {
-                DatePicker(picker, title = { Text("Välj datum", Modifier.padding(16.dp)) })
+                DatePicker(picker, title = { Text(stringResource(R.string.dash_choose_date), Modifier.padding(16.dp)) })
             }
         }
     }

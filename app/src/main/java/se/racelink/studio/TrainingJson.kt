@@ -4,6 +4,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal object TrainingJson {
+    // Audit entries are stored as typed records, never as prose to be re-parsed later.
+    private fun auditJson(entries: List<AuditEntry>): JSONArray = JSONArray(entries.map { a ->
+        JSONObject().apply {
+            put("at", a.at); put("kind", a.kind.name); put("detail", a.detail)
+            a.runId?.let { put("runId", it) }
+            a.before?.let { put("before", it) }
+            a.after?.let { put("after", it) }
+        }
+    })
+
+    /** A single session's payload: no nested archive and no inline audit (audit lives in the journal). */
+    internal fun sessionPayload(s: Training): JSONObject = encode(s.copy(archivedSessions = emptyList(), audit = emptyList()))
     fun encode(s: Training): JSONObject = JSONObject().apply {
         put("team", s.team); put("dark", s.dark)
         put("sessionId", s.sessionId); put("sessionDate", s.sessionDate)
@@ -29,20 +41,30 @@ internal object TrainingJson {
             .put("sequence", it.sequence).put("duration", it.durationMs ?: JSONObject.NULL).put("complete", it.complete)
             .put("tags", JSONArray(it.tags.toList())).put("note", it.note) }))
         put("markers", JSONArray(s.markers.map { JSONObject().put("after", it.afterSequence).put("label", it.label).put("tags", JSONArray(it.tags.toList())) }))
-        put("audit", JSONArray(s.audit)); put("pending", JSONArray(s.pending))
+        put("audit", auditJson(s.audit)); put("pending", JSONArray(s.pending))
     }
     fun decode(o: JSONObject, depth: Int = 0): Training {
         require(depth <= 1) { "Nästlade arkiv stöds inte" }
         require(!o.has("race") || o.isNull("race") || o.get("race") is JSONObject) { "Ogiltiga tävlingsuppgifter" }
         fun objects(key: String) = o.getJSONArray(key).let { a -> (0 until a.length()).map { a.getJSONObject(it) } }
         fun strings(key: String) = o.getJSONArray(key).let { a -> (0 until a.length()).map { a.getString(it) } }
+        // New backups store typed objects; pre-v8 backups store strings that we upgrade on read.
+        fun auditEntries() = o.optJSONArray("audit")?.let { a -> (0 until a.length()).map { i ->
+            when (val e = a.get(i)) {
+                is JSONObject -> AuditEntry(e.getString("at"),
+                    runCatching { AuditKind.valueOf(e.getString("kind")) }.getOrDefault(AuditKind.LEGACY),
+                    e.optString("detail"), if (e.has("runId")) e.getString("runId") else null,
+                    if (e.has("before")) e.getString("before") else null, if (e.has("after")) e.getString("after") else null)
+                else -> parseLegacyAudit(e.toString())
+            }
+        } } ?: emptyList()
         return Training(objects("athletes").map { Athlete(it.getInt("id"), it.getInt("bib"), it.getString("name")) },
             objects("attempts").map { a -> Attempt(a.getString("id"), a.getInt("athlete"), a.getInt("sequence"),
                 if (a.isNull("duration")) null else a.getLong("duration"), a.getBoolean("complete"),
                 a.getJSONArray("tags").let { t -> (0 until t.length()).map { t.getInt(it) }.toSet() }, a.getString("note")) },
             objects("tags").map { CoachingTag(it.getInt("id"), it.getString("name"), TagCategory.valueOf(it.optString("category", "RUN"))) }
                 .let { tags -> if (objects("tags").none { it.has("category") }) tags.withFocusDefaults() else tags }.withChangeDefaults(),
-            objects("markers").map { Marker(it.getInt("after"), it.getString("label"), it.optJSONArray("tags")?.let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() } ?: emptySet()) }, strings("audit"),
+            objects("markers").map { Marker(it.getInt("after"), it.getString("label"), it.optJSONArray("tags")?.let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() } ?: emptySet()) }, auditEntries(),
             o.getString("team"), o.getBoolean("dark"), strings("pending"),
             o.optString("sessionId", "legacy-demo"),
             o.optString("sessionDate", java.time.LocalDate.now().toString()),

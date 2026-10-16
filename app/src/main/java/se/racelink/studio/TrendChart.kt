@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.semantics
@@ -125,37 +126,38 @@ import java.util.Locale
             if (value == null) height - with(density) { 8.dp.toPx() } else bottom - (value - low) / (high - low) * (bottom - top)) }
     }
     @Composable fun ChartToolbar() {
+        val optionsDesc = stringResource(R.string.race_chart_options)
         Surface(color = MaterialTheme.colorScheme.surface, shape = MaterialTheme.shapes.medium) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 toolbar?.invoke()
                 Row(Modifier.heightIn(min = 48.dp).toggleable(value = showTags, role = Role.Switch, onValueChange = { showTags = it }), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Visa taggar", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.race_show_tags), style = MaterialTheme.typography.labelLarge)
                     Spacer(Modifier.width(8.dp))
                     Switch(checked = showTags, onCheckedChange = null)
                 }
                 }
                 Box {
-                    IconButton(onClick = { options = true }, modifier = Modifier.semantics { contentDescription = "Diagramval" }) { Text("⋮", fontSize = 24.sp) }
+                    IconButton(onClick = { options = true }, modifier = Modifier.semantics { contentDescription = optionsDesc }) { Text("⋮", fontSize = 24.sp) }
                     DropdownMenu(expanded = options, onDismissRequest = { options = false }) {
-                        if (setTaggedOnly != null) DropdownMenuItem(text = { Text("Bara taggade åk") },
+                        if (setTaggedOnly != null) DropdownMenuItem(text = { Text(stringResource(R.string.race_tagged_only)) },
                             trailingIcon = { Checkbox(checked = taggedOnly, onCheckedChange = null) },
                             onClick = { setTaggedOnly(!taggedOnly); options = false })
-                        DropdownMenuItem(text = { Text("Välj åk") }, enabled = shown.isNotEmpty(), onClick = { options = false; chooseRun = true })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.race_choose_run)) }, enabled = shown.isNotEmpty(), onClick = { options = false; chooseRun = true })
                         HorizontalDivider()
-                        DropdownMenuItem(text = { Text("Zooma in") }, enabled = zoom < maxOf(8f, runs.size / 4f), onClick = { scaleTo(zoom * 1.5f); options = false })
-                        DropdownMenuItem(text = { Text("Zooma ut") }, enabled = zoom > 1f, onClick = { scaleTo(zoom / 1.5f); options = false })
-                        DropdownMenuItem(text = { Text("Visa alla åk") }, enabled = zoom > 1f, onClick = { zoom = 1f; pan = 0f; options = false })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.race_zoom_in)) }, enabled = zoom < maxOf(8f, runs.size / 4f), onClick = { scaleTo(zoom * 1.5f); options = false })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.race_zoom_out)) }, enabled = zoom > 1f, onClick = { scaleTo(zoom / 1.5f); options = false })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.race_show_all_runs)) }, enabled = zoom > 1f, onClick = { zoom = 1f; pan = 0f; options = false })
                         if (zoom > 1f) {
-                            DropdownMenuItem(text = { Text("Flytta till tidigare åk") }, enabled = boundedPan(pan, zoom) < 0f,
+                            DropdownMenuItem(text = { Text(stringResource(R.string.race_pan_earlier)) }, enabled = boundedPan(pan, zoom) < 0f,
                                 onClick = { pan = boundedPan(pan + viewportPx / 2, zoom); options = false })
-                            DropdownMenuItem(text = { Text("Flytta till senare åk") }, enabled = boundedPan(pan, zoom) > -plotWidth(viewportPx) * (zoom - 1f),
+                            DropdownMenuItem(text = { Text(stringResource(R.string.race_pan_later)) }, enabled = boundedPan(pan, zoom) > -plotWidth(viewportPx) * (zoom - 1f),
                                 onClick = { pan = boundedPan(pan - viewportPx / 2, zoom); options = false })
                         }
                         if (onSkierSwipe != null) {
                             HorizontalDivider()
-                            DropdownMenuItem(text = { Text("Föregående åkare") }, enabled = previousSkierEnabled, onClick = { options = false; onSkierSwipe(-1) })
-                            DropdownMenuItem(text = { Text("Nästa åkare") }, enabled = nextSkierEnabled, onClick = { options = false; onSkierSwipe(1) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.race_previous_athlete)) }, enabled = previousSkierEnabled, onClick = { options = false; onSkierSwipe(-1) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.race_next_athlete_action)) }, enabled = nextSkierEnabled, onClick = { options = false; onSkierSwipe(1) })
                         }
                     }
                 }
@@ -164,10 +166,11 @@ import java.util.Locale
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             ChartToolbar()
-        if (visible.isEmpty()) Text("Inga åk att visa i diagrammet.") else {
+        if (visible.isEmpty()) Text(stringResource(R.string.race_no_runs_in_chart)) else {
             Column(gestureModifier.fillMaxWidth().clipToBounds()) {
+                        val chartDesc = stringResource(R.string.race_chart_desc, shown.size)
                         Canvas(Modifier.fillMaxWidth().height(plotHeight.coerceAtLeast(150.dp)).padding(top = 6.dp)
-                            .semantics { contentDescription = "Utvecklingsdiagram med ${shown.size} åk. Tryck på ett åk eller använd Diagramval för åkval och zoom." }
+                            .semantics { contentDescription = chartDesc }
                             .pointerInput(shown, improvement, baseline, onRunClick, onChangeClick, zoom, pan) {
                                 detectTapGestures { tap ->
                                     val index = chartHit(points(size.width.toFloat(), size.height.toFloat()), tap.x, tap.y, with(density) { 28.dp.toPx() })
@@ -227,9 +230,9 @@ import java.util.Locale
                         val labelWidth = minOf(165.dp, viewportWidth)
                         val x = group.map { it.second }.average().toFloat()
                         val position = (with(density) { x.toDp() } - labelWidth / 2).coerceIn(0.dp, viewportWidth - labelWidth)
-                        val label = if (group.size == 1) "◆ ${markerLabel(group.first().first)}" else "◆ ${group.size} ändringar · visa"
+                        val label = if (group.size == 1) stringResource(R.string.race_change_single, markerLabel(group.first().first)) else stringResource(R.string.race_change_group, group.size)
                         Text(label, Modifier.offset(x = position).width(labelWidth).heightIn(min = 48.dp)
-                            .clickable(onClickLabel = "Visa ändring") {
+                            .clickable(onClickLabel = stringResource(R.string.race_show_change)) {
                                 if (group.size == 1 && onChangeClick != null) onChangeClick(group.first().first)
                                 else changeGroup = group.map { it.first }
                             }, maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -241,7 +244,10 @@ import java.util.Locale
                     Row(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).requiredWidth(plotWidthDp * zoom).offset(x = with(density) { (leftInset + boundedPan(pan, zoom)).toDp() })) {
                         shown.forEach { item ->
                             Column(Modifier.width(slotWidth).heightIn(min = 48.dp).clickable { open(item.attempt) }.padding(horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Åk ${item.number}${if (isBest(item.attempt)) " ★" else ""}${if (!item.attempt.complete) " · DNF" else ""}", style = MaterialTheme.typography.labelSmall)
+                                val runLabel = stringResource(R.string.race_run_number, item.number) +
+                                    (if (isBest(item.attempt)) " ★" else "") +
+                                    (if (!item.attempt.complete) " · DNF" else "")
+                                Text(runLabel, style = MaterialTheme.typography.labelSmall)
                                 listOf(TagCategory.RUN, TagCategory.NEXT_FOCUS).forEach { category ->
                                     val labels = tags.filter { it.id in item.attempt.tags && it.category == category }.joinToString(" · ") { it.name }
                                     if (labels.isNotBlank()) Text(labels, textAlign = TextAlign.Center,
@@ -252,13 +258,13 @@ import java.util.Locale
                     }
                 }
                 if (showTags && slotWidth < 75.dp) {
-                    Text("Taggar per åk", style = MaterialTheme.typography.labelLarge)
+                    Text(stringResource(R.string.race_tags_per_run), style = MaterialTheme.typography.labelLarge)
                     val tagged = shown.filter { item -> tags.any { it.id in item.attempt.tags && it.category != TagCategory.CHANGE } }
-                    if (tagged.isEmpty()) Text("Inga taggar på åken ännu.", style = MaterialTheme.typography.bodySmall)
+                    if (tagged.isEmpty()) Text(stringResource(R.string.race_no_tags_yet), style = MaterialTheme.typography.bodySmall)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         tagged.forEach { item -> OutlinedCard(onClick = { open(item.attempt) }, modifier = Modifier.widthIn(max = 260.dp)) {
                             Column(Modifier.padding(8.dp)) {
-                                Text("Åk ${item.number}", style = MaterialTheme.typography.labelLarge)
+                                Text(stringResource(R.string.race_run_number, item.number), style = MaterialTheme.typography.labelLarge)
                                 listOf(TagCategory.RUN, TagCategory.NEXT_FOCUS).forEach { category ->
                                     val names = tags.filter { it.id in item.attempt.tags && it.category == category }.joinToString(" · ") { it.name }
                                     if (names.isNotBlank()) Text("${category.label}: $names", style = MaterialTheme.typography.labelSmall,
@@ -271,27 +277,34 @@ import java.util.Locale
             }
 
         }
-    Text((if (onRunClick == null) "Tryck på ett åk för detaljer" else "Tryck på ett åk för tidskortet") +
-        if (zoom > 1f) " · ${"%.1f".format(zoom)}× zoom" else " · nyp för att zooma", style = MaterialTheme.typography.labelSmall,
+    Text(stringResource(if (onRunClick == null) R.string.race_tap_run_details else R.string.race_tap_run_timecard) +
+        if (zoom > 1f) stringResource(R.string.race_zoom_suffix, "%.1f".format(zoom)) else stringResource(R.string.race_pinch_to_zoom), style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    if (chooseRun) AlertDialog(onDismissRequest = { chooseRun = false }, title = { Text("Välj åk") }, text = {
+    if (chooseRun) AlertDialog(onDismissRequest = { chooseRun = false }, title = { Text(stringResource(R.string.race_choose_run)) }, text = {
         Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-            shown.forEach { item -> TextButton(onClick = { chooseRun = false; open(item.attempt) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Text("Åk ${item.number} · ${item.attempt.durationMs?.let { seconds(it) + " s" } ?: "DNF"}${if (!item.attempt.complete && item.attempt.durationMs != null) " · DNF" else ""}")
+            shown.forEach { item ->
+                val timeLabel = item.attempt.durationMs?.let { seconds(it) + " s" } ?: "DNF"
+                val suffix = if (!item.attempt.complete && item.attempt.durationMs != null) " · DNF" else ""
+                TextButton(onClick = { chooseRun = false; open(item.attempt) }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.race_run_number_time, item.number, timeLabel) + suffix)
             } }
         }
-    }, confirmButton = { TextButton(onClick = { chooseRun = false }) { Text("Stäng") } })
-    changeGroup?.let { group -> AlertDialog(onDismissRequest = { changeGroup = null }, title = { Text("Ändringar i diagrammet") },
+    }, confirmButton = { TextButton(onClick = { chooseRun = false }) { Text(stringResource(R.string.race_close)) } })
+    changeGroup?.let { group -> AlertDialog(onDismissRequest = { changeGroup = null }, title = { Text(stringResource(R.string.race_chart_changes)) },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) { group.forEach { marker ->
-            TextButton(onClick = { if (onChangeClick != null) { changeGroup = null; onChangeClick(marker) } }) { Text("Efter resultat ${marker.afterSequence}: ${markerLabel(marker)}") }
-        } } }, confirmButton = { TextButton(onClick = { changeGroup = null }) { Text("Stäng") } }) }
+            TextButton(onClick = { if (onChangeClick != null) { changeGroup = null; onChangeClick(marker) } }) { Text(stringResource(R.string.race_after_result, marker.afterSequence, markerLabel(marker))) }
+        } } }, confirmButton = { TextButton(onClick = { changeGroup = null }) { Text(stringResource(R.string.race_close)) } }) }
     detailId?.let { id -> runs.find { it.id == id }?.let { run ->
-        AlertDialog(onDismissRequest = { detailId = null }, title = { Text("Åk ${runs.indexOf(run) + 1} · ${if (run.complete) seconds(run.durationMs!!) + " s" else "DNF"}") },
+        AlertDialog(onDismissRequest = { detailId = null }, title = { Text(stringResource(R.string.race_run_number_time, runs.indexOf(run) + 1, if (run.complete) seconds(run.durationMs!!) + " s" else "DNF")) },
             text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TagCategory.entries.forEach { category -> Text("${category.label}: ${(if (category == TagCategory.CHANGE) changeLabels[run.id].orEmpty() else tags.filter { it.id in run.tags && it.category == category }.joinToString(" · ") { it.name }).ifBlank { "Inga taggar" }}") }
-                Text(run.note.ifBlank { "Ingen anteckning" })
-            } }, confirmButton = { TextButton(onClick = { detailId = null }) { Text("Stäng") } })
+                TagCategory.entries.forEach { category ->
+                    val value = if (category == TagCategory.CHANGE) changeLabels[run.id].orEmpty()
+                        else tags.filter { it.id in run.tags && it.category == category }.joinToString(" · ") { it.name }
+                    Text("${category.label}: ${if (value.isBlank()) stringResource(R.string.race_no_tags) else value}")
+                }
+                Text(if (run.note.isBlank()) stringResource(R.string.race_no_note) else run.note)
+            } }, confirmButton = { TextButton(onClick = { detailId = null }) { Text(stringResource(R.string.race_close)) } })
     } }
     }
 }

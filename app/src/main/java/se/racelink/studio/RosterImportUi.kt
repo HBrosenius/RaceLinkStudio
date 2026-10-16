@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -57,31 +58,32 @@ internal fun java.io.InputStream.readBytesBounded(limit: Int): ByteArray {
     val preview = remember(importer.text, s.roster) { importer.text?.let { previewRosterImport(it, s.roster) } }
     val enabled = !importer.busy && !vm.busy && !vm.backupBusy
     val leave = { if (enabled) { importer.clear(); close() } }
-    EditorDialog(leave, title = { Text("Importera åkarlista", style = MaterialTheme.typography.headlineSmall) }, text = {
+    EditorDialog(leave, title = { Text(stringResource(R.string.race_import_roster_title), style = MaterialTheme.typography.headlineSmall) }, text = {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
-                Text("UTF-8 CSV · max 1 MB / 5000 åkare. Rubriker: Nummer;Namn. Även komma och citerade fält accepteras.")
-                Text("Exempel:\nNummer;Namn\n101;Anna Svensson\n102;Erik Andersson")
-                Text("Nya åkare läggs i lagets lista för framtida pass. Välj dem som deltagare när det behövs. Aktuella deltagare och historik ändras inte.")
-                OutlinedButton(enabled = enabled, onClick = { picker.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "application/octet-stream")) }) { Text("Välj CSV-fil") }
+                Text(stringResource(R.string.race_import_format_note))
+                Text(stringResource(R.string.race_import_example))
+                Text(stringResource(R.string.race_import_new_athletes_note))
+                OutlinedButton(enabled = enabled, onClick = { picker.launch(arrayOf("text/*", "application/csv", "application/vnd.ms-excel", "application/octet-stream")) }) { Text(stringResource(R.string.race_choose_csv_file)) }
                 StatusMessage(importer.error, isError = true)
                 if (importer.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 preview?.let { p ->
-                    StatusMessage("${p.additions.size} nya · ${p.rows.count { it.existing }} finns redan · ${p.rows.count { it.error != null }} fel")
+                    StatusMessage(stringResource(R.string.race_import_preview, p.additions.size, p.rows.count { it.existing }, p.rows.count { it.error != null }))
                     StatusMessage(p.error, isError = true)
-                    if (p.rows.any { it.error != null }) Text("Rätta felen och välj filen igen. Inget importeras innan alla rader är giltiga.")
+                    if (p.rows.any { it.error != null }) Text(stringResource(R.string.race_import_fix_errors))
                 }
                 SaveFeedback(!vm.busy, vm.error)
             }
             items(preview?.rows.orEmpty(), key = { it.line }) { row ->
                 Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
-                    Text("Rad ${row.line} · ${row.bib ?: "?"} · ${row.name}")
-                    Text(row.error ?: if (row.existing) "Finns redan · lämnas oförändrad" else "Ny åkare", color = if (row.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.race_import_row, row.line, row.bib?.toString() ?: "?", row.name))
+                    val rowStatus = row.error ?: if (row.existing) stringResource(R.string.race_row_exists) else stringResource(R.string.race_row_new)
+                    Text(rowStatus, color = if (row.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
                 } }
             }
         }
     }, confirmButton = { Button(enabled = enabled && preview?.canApply == true, onClick = {
         val source = importer.text ?: return@Button
         vm.update(onCommitted = { importer.clear(); close() }) { it.importRosterCsv(source) }
-    }) { Text("Importera ${preview?.additions?.size ?: 0} åkare") } }, dismissButton = { TextButton(enabled = enabled, onClick = leave) { Text("Avbryt") } })
+    }) { Text(stringResource(R.string.race_import_count, preview?.additions?.size ?: 0)) } }, dismissButton = { TextButton(enabled = enabled, onClick = leave) { Text(stringResource(R.string.race_cancel)) } })
 }

@@ -37,6 +37,6 @@ internal fun removedChangeUndo(before: Training, index: Int): UndoEdit {
         require(current.sessionId == before.sessionId && current.closedAt == null) { "Passet har ändrats eller avslutats" }
         require(current.markers.count { it == marker } < before.markers.count { it == marker }) { "Ändringen har redan återställts" }
         val markers = current.markers.toMutableList().apply { add(index.coerceAtMost(size), marker) }
-        current.copy(markers = markers, audit = current.audit + "${java.time.Instant.now()} · Ångrad borttagning: ${current.markerDescription(marker)}")
+        current.copy(markers = markers, audit = current.audit + AuditEntry.now(AuditKind.CHANGE_UNDO, "Ångrad borttagning: ${current.markerDescription(marker)}"))
     }
 }

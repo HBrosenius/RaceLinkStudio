@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TagSettings -->
+    <string name="set_settings_title">Lag och coachningstaggar</string>
+    <string name="set_settings_info">Namn och kategorier ändras för alla åk i aktuellt pass, även tidigare åk. Sparade pass behåller sina uppgifter.</string>
+    <string name="set_team_name">Lagnamn</string>
+    <string name="set_category_count">%1$s (%2$d)</string>
+    <string name="set_change_category_hint">Beskriver en ändring av bana, underlag eller övning. Ändringstaggar behåller sin kategori.</string>
+    <string name="set_tag_list_hint">Flera taggar kan väljas på varje åk. Redigera en tagg för att byta namn eller kategori.</string>
+    <string name="set_no_tags_in_category">Inga taggar i kategorin ännu.</string>
+    <string name="set_edit_tag_description">Redigera taggen %1$s</string>
+    <string name="set_edit">Redigera</string>
+    <string name="set_add_tag">Lägg till tagg</string>
+    <string name="set_edit_tag">Redigera tagg</string>
+    <string name="set_session_closed">Passet är avslutat och skrivskyddat.</string>
+    <string name="set_cancel">Avbryt</string>
+    <string name="set_save_changes">Spara ändringar</string>
+    <string name="set_tag_name">Taggnamn</string>
+    <string name="set_edit_tag_hint">Ändringen gäller även tidigare åk i aktuellt pass. Åkens val behålls när taggen döps om eller flyttas.</string>
+    <string name="set_editor_flow_hint">Klar uppdaterar utkastet. Spara ändringar sparar hela listan.</string>
+    <string name="set_done">Klar</string>
+
+    <!-- RunHistory -->
+    <string name="set_run_history_label">Ändringshistorik och originalresultat</string>
+    <string name="set_run_history_title">Åkets ändringshistorik</string>
+    <string name="set_no_finish_time">Ingen måltid</string>
+    <string name="set_saved_corrections">Sparade rättelser · äldst först</string>
+    <string name="set_no_saved_corrections">Inga sparade rättelser för detta åk.</string>
+    <string name="set_legacy_entry_info">Äldre post: visar den sparade texten. Namn och taggnamn vid ändringen saknas.</string>
+    <string name="set_before">Före</string>
+    <string name="set_after">Efter</string>
+    <string name="set_original_results">Originalresultat och beslut</string>
+    <string name="set_no_original_events">Detta äldre åk har inga sparade originalhändelser.</string>
+    <string name="set_event_number_line">Nummer %1$d · %2$s · %3$s</string>
+    <string name="set_completed">Fullföljt</string>
+    <string name="set_decision_accepted">Automatiskt matchad</string>
+    <string name="set_decision_assigned">Tilldelad åkare %1$d</string>
+    <string name="set_decision_duplicate">Dubblett · inget nytt åk skapat</string>
+    <string name="set_decision_rejected">Avvisad</string>
+    <string name="set_decision_waiting">Väntar på granskning</string>
+    <string name="set_event_detail">%1$s\nHändelse %2$s · Ordningsnummer %3$d</string>
+    <string name="set_run_history_footer">Listan visar rättelser av åkets åkare, status, taggval och anteckning. Gemensamma banändringar och namnändringar ingår inte i denna lista.</string>
+    <string name="set_back_to_run">Tillbaka till åket</string>
+
+    <!-- BackupScreen -->
+    <string name="set_backup_title">Säkerhetskopiera och återställ</string>
+    <string name="set_backup_info">Spara alla pass, åkare, taggar, anteckningar och ändringshistorik i en fil. Säkerhetskopian innehåller även privata coachningsanteckningar.</string>
+    <string name="set_save_backup">Spara säkerhetskopia</string>
+    <string name="set_choose_backup">Välj säkerhetskopia</string>
+    <string name="set_undo_restore">Ångra senaste återställning</string>
+    <string name="set_selected_backup">Vald kopia: %1$s</string>
+    <string name="set_backup_summary">%1$d pass · %2$d åk · %3$d åkare i åkarlistan</string>
+    <string name="set_current_session">Aktuellt pass: %1$s</string>
+    <string name="set_restore_warning">Återställning ersätter alla lokala pass och inställningar. En återställningspunkt sparas automatiskt för nuvarande träning.</string>
+    <string name="set_replace_local">Ersätt lokal träning</string>
+    <string name="set_cancel_restore">Avbryt återställning</string>
+    <string name="set_close">Stäng</string>
+    <string name="set_recovery_note">Lokal återställningspunkt räknas inte som en extern säkerhetskopia.</string>
+
+    <!-- ReportScreen -->
+    <string name="set_close_to_current">Till aktuellt pass</string>
+    <string name="set_reports_title">Rapporter</string>
+    <string name="set_filter">Filtrera</string>
+    <string name="set_export">Exportera</string>
+    <string name="set_show_charts">Visa diagram</string>
+    <string name="set_reset_filters">Återställ filter</string>
+    <string name="set_close_message">Stäng meddelande</string>
+    <string name="set_invalid_selection">Ogiltigt urval</string>
+    <string name="set_report_summary">%1$d fullföljda · %2$d DNF · Simulator</string>
+    <string name="set_times_per_session">Tider visas per pass. Olika banor jämförs inte automatiskt.</string>
+    <string name="set_no_report_runs">Inga åk för valda pass/datum och åkare.</string>
+    <string name="set_change_selection">Ändra urval</string>
+    <string name="set_show_all">Visa alla pass och åkare</string>
+    <string name="set_session_header">%1$s · Pass %2$d · %3$s</string>
+    <string name="set_summary_per_athlete">Sammanfattning per åkare</string>
+    <string name="set_results_per_class">Resultat per klass · %1$s</string>
+    <string name="set_standings_line">%1$s · %2$s · %3$s</string>
+    <string name="set_placement">Placering %1$d</string>
+    <string name="set_no_placement">Ingen placering</string>
+    <string name="set_run_pair">Åk 1: %1$s · Åk 2: %2$s</string>
+    <string name="set_development_header">%1$s · Utveckling under passet</string>
+    <string name="set_chart_axis_note">Tid i sekunder · lägre är snabbare</string>
+    <string name="set_run_header">%1$s · Nummer %2$d · Åk %3$d</string>
+    <string name="set_run_difference">%1$s jämfört med åk %2$d</string>
+    <string name="set_category_tags">%1$s: %2$s</string>
+
+    <!-- ReportFilters -->
+    <string name="set_filter_report_title">Filtrera rapport</string>
+    <string name="set_sessions_and_dates">Pass och datum</string>
+    <string name="set_athletes">Åkare</string>
+    <string name="set_all_sessions">Alla pass</string>
+    <string name="set_choose_sessions">Välj pass</string>
+    <string name="set_date_range">Datumintervall</string>
+    <string name="set_from_date">Från och med</string>
+    <string name="set_through_date">Till och med</string>
+    <string name="set_dates_inclusive">Båda datumen ingår i urvalet.</string>
+    <string name="set_search_sessions">Sök passnamn, plats eller datum</string>
+    <string name="set_select_all_sessions">Välj alla pass</string>
+    <string name="set_deselect_all_sessions">Avmarkera alla pass</string>
+    <string name="set_no_sessions_selected">Inga pass valda. Välj ett pass eller Alla pass.</string>
+    <string name="set_no_session_matches">Inga pass matchar sökningen.</string>
+    <string name="set_session_row">%1$d åk · %2$s</string>
+    <string name="set_search_athletes">Sök namn eller nummer</string>
+    <string name="set_all_athletes">Alla åkare</string>
+    <string name="set_deselect_all_athletes">Avmarkera alla åkare</string>
+    <string name="set_no_athletes_selected">Inga åkare valda. Välj en åkare eller Alla åkare.</string>
+    <string name="set_no_athlete_matches">Inga åkare matchar sökningen.</string>
+    <string name="set_athlete_row">%1$d · %2$s</string>
+    <string name="set_invalid_date">Ange giltiga datum som ÅÅÅÅ-MM-DD</string>
+    <string name="set_fix_selection">Rätta urvalet för att fortsätta</string>
+    <string name="set_show_selection">Visa urval</string>
+</resources>

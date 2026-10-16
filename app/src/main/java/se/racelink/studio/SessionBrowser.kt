@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.window.Dialog
@@ -37,7 +38,7 @@ import androidx.compose.ui.window.DialogProperties
         BackHandler { scopedReports = false }
         Reports(current, { scopedReports = false }, embedded,
             initialSelection = ReportSelection("sessions", setOf(session.sessionId), athleteId?.let { setOf(it) }),
-            closeLabel = "Tillbaka till passet")
+            closeLabel = stringResource(R.string.dash_back_to_session))
         return
     }
     val back = { if (reviewHistory) reviewHistory = false else if (athleteId != null) athleteId = null else if (sessionId != null) sessionId = null else close() }
@@ -46,42 +47,42 @@ import androidx.compose.ui.window.DialogProperties
         Surface(Modifier.fillMaxSize().safeDrawingPadding(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (reports) "Rapporter" else "Träningspass", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+                    Text(if (reports) stringResource(R.string.dash_reports) else stringResource(R.string.dash_training_sessions), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
                     if (session != null) TextButton(onClick = {
                         back()
-                    }) { Text("Tillbaka") }
-                    TextButton(onClick = close) { Text("Till aktuellt pass") }
+                    }) { Text(stringResource(R.string.dash_back)) }
+                    TextButton(onClick = close) { Text(stringResource(R.string.dash_to_current_session)) }
                 }
                 if (session == null) {
-                    OutlinedTextField(sessionQuery, { sessionQuery = it }, label = { Text("Sök pass, datum eller plats") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(sessionQuery, { sessionQuery = it }, label = { Text(stringResource(R.string.dash_search_session_date_place)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (current.archivedSessions.isEmpty()) Text("Inga tidigare pass ännu. Välj Passåtgärder → Starta träningspass när träningen är klar.")
+                        if (current.archivedSessions.isEmpty()) Text(stringResource(R.string.dash_no_previous_sessions))
                         val matches = sessions.filter { "${it.sessionLabel()} ${it.sessionDetails()}".contains(sessionQuery.trim(), ignoreCase = true) }
-                        if (matches.isEmpty()) Text("Inga pass matchar sökningen.")
+                        if (matches.isEmpty()) Text(stringResource(R.string.dash_no_sessions_match))
                         matches.forEach { item ->
                             Card(onClick = { sessionId = item.sessionId; athleteId = null }) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                                    Text("${item.sessionLabel()} · ${if (item.sessionId == current.sessionId && item.closedAt == null) "Aktuellt pass" else "Sparat pass"}", style = MaterialTheme.typography.titleMedium)
+                                    Text("${item.sessionLabel()} · ${if (item.sessionId == current.sessionId && item.closedAt == null) stringResource(R.string.dash_current_session) else stringResource(R.string.dash_saved_session)}", style = MaterialTheme.typography.titleMedium)
                                     if (item.sessionDetails().isNotBlank()) Text(item.sessionDetails())
-                                    Text("${item.team} · ${item.attempts.size} åk · ${item.attempts.eligible().size} fullföljda")
-                                    Text("${item.athletes.size} åkare · ${item.audit.size} sparade ändringar", style = MaterialTheme.typography.bodySmall)
+                                    Text(stringResource(R.string.dash_session_summary_line, item.team, item.attempts.size, item.attempts.eligible().size))
+                                    Text(stringResource(R.string.dash_athletes_audit, item.athletes.size, item.audit.size), style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
                     }
                 } else {
-                    Text("${session.sessionLabel()} · ${session.team} · ${if (session.sessionId == current.sessionId && session.closedAt == null) "Pågående" else "Avslutat"}")
-                    Text("SIMULATOR · Påhittade namn och tider", color = MaterialTheme.colorScheme.primary)
+                    Text("${session.sessionLabel()} · ${session.team} · ${if (session.sessionId == current.sessionId && session.closedAt == null) stringResource(R.string.dash_ongoing_session) else stringResource(R.string.dash_closed_session)}")
+                    Text(stringResource(R.string.dash_simulator_made_up), color = MaterialTheme.colorScheme.primary)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { scopedReports = true }) { Text("Öppna i Rapporter") }
-                        OutlinedButton(onClick = { exportVm.begin(reportRuns(listOf(session))); exporting = true }) { Text("Exportera passets CSV") }
+                        Button(onClick = { scopedReports = true }) { Text(stringResource(R.string.dash_open_in_reports)) }
+                        OutlinedButton(onClick = { exportVm.begin(reportRuns(listOf(session))); exporting = true }) { Text(stringResource(R.string.dash_export_session_csv)) }
                         if (athlete != null) OutlinedButton(onClick = {
                             exportVm.begin(reportRuns(listOf(session), athleteId = athlete.id)); exporting = true
-                        }) { Text("Exportera ${athlete.name}s CSV") }
+                        }) { Text(stringResource(R.string.dash_export_athlete_csv, athlete.name)) }
                     }
                     exportVm.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                     if (session.timingEvents.isNotEmpty()) TextButton(onClick = { reviewHistory = !reviewHistory }) {
-                        Text(if (reviewHistory) "Visa åkrapport" else "Visa ursprungliga händelser och beslut")
+                        Text(if (reviewHistory) stringResource(R.string.dash_show_run_report) else stringResource(R.string.dash_show_original_events))
                     }
                     if (reviewHistory) {
                         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -89,13 +90,13 @@ import androidx.compose.ui.window.DialogProperties
                                 Column(Modifier.padding(16.dp)) {
                                     Text(entry.reason, style = MaterialTheme.typography.titleMedium)
                                     val event = entry.observation
-                                    Text("${event.id} · Nummer ${event.bib} · ${event.durationMs?.let { seconds(it) + " s" } ?: "DNF"}")
+                                    Text("${event.id} · ${stringResource(R.string.dash_number)} ${event.bib} · ${event.durationMs?.let { seconds(it) + " s" } ?: "DNF"}")
                                     Text(when (entry.decision) {
-                                        TimingDecision.ACCEPTED -> "Automatiskt matchad"
-                                        TimingDecision.ASSIGNED -> "Tilldelad ${session.athletes.find { it.id == entry.athleteId }?.name}"
-                                        TimingDecision.DUPLICATE -> "Dubblett av ${entry.attemptId}"
-                                        TimingDecision.REJECTED -> "Avvisad"
-                                        TimingDecision.WAITING -> "Väntar på granskning"
+                                        TimingDecision.ACCEPTED -> stringResource(R.string.dash_timing_accepted)
+                                        TimingDecision.ASSIGNED -> stringResource(R.string.dash_timing_assigned, session.athletes.find { it.id == entry.athleteId }?.name.orEmpty())
+                                        TimingDecision.DUPLICATE -> stringResource(R.string.dash_timing_duplicate, entry.attemptId.orEmpty())
+                                        TimingDecision.REJECTED -> stringResource(R.string.dash_timing_rejected)
+                                        TimingDecision.WAITING -> stringResource(R.string.dash_timing_waiting)
                                     })
                                     entry.decidedAt?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                                 }
@@ -104,28 +105,28 @@ import androidx.compose.ui.window.DialogProperties
                     } else if (session.race != null) {
                         RaceScreen(session, vm, Modifier.weight(1f).fillMaxWidth(), archive = true)
                     } else if (athlete != null) {
-                        OutlinedButton(onClick = { pickSkier = true }) { Text("Visar ${athlete.bib} · ${athlete.name} · byt åkare") }
+                        OutlinedButton(onClick = { pickSkier = true }) { Text(stringResource(R.string.dash_showing_athlete_prefix, athlete.bib, athlete.name)) }
                         val runs = session.runs(athlete.id)
                         RunDashboard(session, athlete, runs, runs.lastOrNull(), runs.eligible(), improvement,
                             { improvement = it }, {}, Modifier.weight(1f).fillMaxWidth(), readOnly = true)
                     } else {
-                        Text("Rapport per åkare", style = MaterialTheme.typography.titleLarge)
-                        OutlinedTextField(skierQuery, { skierQuery = it }, label = { Text("Sök namn eller nummer") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        Text(stringResource(R.string.dash_report_per_athlete), style = MaterialTheme.typography.titleLarge)
+                        OutlinedTextField(skierQuery, { skierQuery = it }, label = { Text(stringResource(R.string.dash_search_name_or_number)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             val matches = findSkiers(session.athletes, skierQuery)
-                            if (matches.isEmpty()) Text("Inga åkare matchar sökningen.")
+                            if (matches.isEmpty()) Text(stringResource(R.string.dash_no_athletes_match))
                             matches.forEach { item ->
                                 val runs = session.runs(item.id)
                                 val valid = runs.eligible()
                                 Card(onClick = { athleteId = item.id }) {
                                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                                         Text("${item.bib} · ${item.name}", style = MaterialTheme.typography.titleMedium)
-                                        Text("${valid.size} fullföljda · ${runs.size - valid.size} DNF")
-                                        if (valid.isEmpty()) Text("Inga fullföljda åk") else {
-                                            Text("Snabbast ${seconds(valid.minOf { it.durationMs!! })} s · Senast ${seconds(valid.last().durationMs!!)} s")
-                                            if (valid.size > 1) Text("${difference(valid.last().durationMs!! - valid.first().durationMs!!)} jämfört med första fullföljda åket")
+                                        Text(stringResource(R.string.dash_completed_dnf_count, valid.size, runs.size - valid.size))
+                                        if (valid.isEmpty()) Text(stringResource(R.string.dash_no_completed_runs)) else {
+                                            Text(stringResource(R.string.dash_fastest_latest, seconds(valid.minOf { it.durationMs!! }), seconds(valid.last().durationMs!!)))
+                                            if (valid.size > 1) Text(stringResource(R.string.dash_compared_to_first, difference(valid.last().durationMs!! - valid.first().durationMs!!)))
                                         }
-                                        Text("Visa alla åk och utveckling", color = MaterialTheme.colorScheme.primary)
+                                        Text(stringResource(R.string.dash_show_all_runs), color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }

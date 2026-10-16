@@ -17,6 +17,7 @@ import android.graphics.Rect
 import android.view.ViewTreeObserver
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -102,35 +103,35 @@ private val destinations = listOf("current" to "Aktuellt", "sessions" to "Histor
 
 @Composable internal fun SettingsHome(s: Training, vm: TrainingViewModel, editTags: () -> Unit, simulator: () -> Unit, review: () -> Unit, roster: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Inställningar", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.dash_settings), style = MaterialTheme.typography.headlineSmall)
         Text(s.team, style = MaterialTheme.typography.titleMedium)
-        OutlinedButton(onClick = roster) { Text("Hantera lagets åkarlista") }
-        Text("Lag och coachningstaggar", style = MaterialTheme.typography.titleMedium)
-        Text(if (s.closedAt == null) "Gäller aktuellt pass. Sparade pass behåller sina taggar." else "Passet är avslutat. Dess lag och taggar är skrivskyddade.")
-        OutlinedButton(onClick = editTags, enabled = !vm.busy && s.closedAt == null) { Text("Redigera lag och taggar") }
+        OutlinedButton(onClick = roster) { Text(stringResource(R.string.dash_manage_team_roster)) }
+        Text(stringResource(R.string.dash_team_coaching_tags), style = MaterialTheme.typography.titleMedium)
+        Text(if (s.closedAt == null) stringResource(R.string.dash_tags_current_session_note) else stringResource(R.string.dash_tags_closed_session_note))
+        OutlinedButton(onClick = editTags, enabled = !vm.busy && s.closedAt == null) { Text(stringResource(R.string.dash_edit_team_tags)) }
         HorizontalDivider()
-        Text("Utseende", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.dash_appearance), style = MaterialTheme.typography.titleMedium)
         Row {
-            FilterChip(selected = !s.dark, enabled = !vm.busy, onClick = { vm.update { it.copy(dark = false) } }, label = { Text("Ljust") })
+            FilterChip(selected = !s.dark, enabled = !vm.busy, onClick = { vm.update { it.copy(dark = false) } }, label = { Text(stringResource(R.string.dash_light)) })
             Spacer(Modifier.width(8.dp))
-            FilterChip(selected = s.dark, enabled = !vm.busy, onClick = { vm.update { it.copy(dark = true) } }, label = { Text("Mörkt") })
+            FilterChip(selected = s.dark, enabled = !vm.busy, onClick = { vm.update { it.copy(dark = true) } }, label = { Text(stringResource(R.string.dash_dark)) })
         }
         HorizontalDivider()
-        Text("Säkerhetskopiering", style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.dash_backup_section), style = MaterialTheme.typography.titleMedium)
         BackupStatus(vm)
-        OutlinedButton(onClick = { vm.backupOpen = true }) { Text("Säkerhetskopiera och återställ") }
+        OutlinedButton(onClick = { vm.backupOpen = true }) { Text(stringResource(R.string.dash_backup_and_restore)) }
         HorizontalDivider()
-        Text("Resultatljud", style = MaterialTheme.typography.titleMedium)
-        Text("Av som standard. Kort ljud efter ett nytt sparat, fullföljt resultat. Upprepade resultat och rättningar ger inget ljud. Följer enhetens ljudläge, aviseringsvolym och Stör ej.")
-        FilterChip(selected = vm.resultSoundEnabled, onClick = { vm.setResultSound(!vm.resultSoundEnabled) }, label = { Text(if (vm.resultSoundEnabled) "Ljud på · tryck för att tysta" else "Ljud av · tryck för att aktivera") })
-        OutlinedButton(onClick = vm::previewResultSound) { Text("Prova resultatljud") }
+        Text(stringResource(R.string.dash_result_sound), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.dash_result_sound_note))
+        FilterChip(selected = vm.resultSoundEnabled, onClick = { vm.setResultSound(!vm.resultSoundEnabled) }, label = { Text(if (vm.resultSoundEnabled) stringResource(R.string.dash_result_sound_on) else stringResource(R.string.dash_result_sound_off)) })
+        OutlinedButton(onClick = vm::previewResultSound) { Text(stringResource(R.string.dash_try_result_sound)) }
         StatusMessage(vm.soundMessage)
         ReportBrandingSettings()
         HorizontalDivider()
-        Text("Demoverktyg", style = MaterialTheme.typography.titleMedium)
-        Text("Simulator · ingen timer är ansluten. Simulerade resultat sparas i aktuellt pass.")
-        OutlinedButton(onClick = simulator, enabled = s.closedAt == null) { Text("Öppna simulator") }
-        OutlinedButton(onClick = review) { Text("Resultatgranskning (${s.reviewQueue().size})") }
+        Text(stringResource(R.string.dash_demo_tools), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(R.string.dash_simulator_no_timer_full))
+        OutlinedButton(onClick = simulator, enabled = s.closedAt == null) { Text(stringResource(R.string.dash_open_simulator)) }
+        OutlinedButton(onClick = review) { Text(stringResource(R.string.dash_result_review, s.reviewQueue().size)) }
         SaveFeedback(!vm.busy, vm.error)
     }
 }

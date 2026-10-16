@@ -31,7 +31,7 @@ fun Training.recordChange(tagIds: Set<Int>, description: String): Training {
     require(tagIds.isNotEmpty() || description.isNotBlank()) { "Välj taggar eller beskriv ändringen" }
     require(tagIds.all { id -> tags.any { it.id == id && it.category == TagCategory.CHANGE } })
     val marker = Marker(nextTimingSequence() - 1, description.trim(), tagIds)
-    return copy(markers = markers + marker, audit = audit + "${java.time.Instant.now()} · Ändring efter ${marker.afterSequence}: ${markerDescription(marker)}")
+    return copy(markers = markers + marker, audit = audit + AuditEntry.now(AuditKind.CHANGE_RECORDED, "Ändring efter ${marker.afterSequence}: ${markerDescription(marker)}"))
 }
 
 fun Training.editChange(index: Int, tagIds: Set<Int>, description: String): Training {
@@ -42,7 +42,7 @@ fun Training.editChange(index: Int, tagIds: Set<Int>, description: String): Trai
     val old = markers[index]
     val updated = old.copy(label = description.trim(), tags = tagIds)
     return copy(markers = markers.mapIndexed { i, marker -> if (i == index) updated else marker },
-        audit = audit + "${java.time.Instant.now()} · Rättad ändring efter ${old.afterSequence}: ${markerDescription(old)} -> ${markerDescription(updated)}")
+        audit = audit + AuditEntry.now(AuditKind.CHANGE_EDITED, "Rättad ändring efter ${old.afterSequence}: ${markerDescription(old)} -> ${markerDescription(updated)}"))
 }
 
 fun Training.removeChange(index: Int): Training {
@@ -50,7 +50,7 @@ fun Training.removeChange(index: Int): Training {
     require(index in markers.indices) { "Ändringen finns inte" }
     val removed = markers[index]
     return copy(markers = markers.filterIndexed { i, _ -> i != index },
-        audit = audit + "${java.time.Instant.now()} · Borttagen ändring efter ${removed.afterSequence}: ${markerDescription(removed)}")
+        audit = audit + AuditEntry.now(AuditKind.CHANGE_REMOVED, "Borttagen ändring efter ${removed.afterSequence}: ${markerDescription(removed)}"))
 }
 
 data class Attempt(
@@ -60,7 +60,7 @@ data class Attempt(
 data class Marker(val afterSequence: Int, val label: String, val tags: Set<Int> = emptySet())
 data class Training(
     val athletes: List<Athlete>, val attempts: List<Attempt>, val tags: List<CoachingTag>,
-    val markers: List<Marker> = emptyList(), val audit: List<String> = emptyList(),
+    val markers: List<Marker> = emptyList(), val audit: List<AuditEntry> = emptyList(),
     val team: String = "Fjällbackens skidklubb", val dark: Boolean = false,
     val pending: List<String> = emptyList(),
     val sessionId: String = java.util.UUID.randomUUID().toString(),
@@ -133,7 +133,7 @@ fun Training.closeSession(): Training {
     require(race == null || attempts.all { it.id in race.roundByAttempt || it.id in race.unusedAttemptIds }) { "Tilldela eller undanta extraresultaten innan tävlingen avslutas." }
     val now = java.time.Instant.now().toString()
     return copy(closedAt = now, nextAthleteId = null, pending = emptyList(),
-        audit = audit + "$now | Pass avslutat | $sessionId")
+        audit = audit + AuditEntry(now, AuditKind.SESSION_CLOSED, "Pass avslutat · $sessionId"))
 }
 fun Training.startNewSession(
     name: String = "Träningspass", date: String = java.time.LocalDate.now().toString(),
@@ -168,7 +168,7 @@ fun Training.editSession(name: String, date: String, location: String, course: S
         roster = validated.roster, participantIds = participants, athletes = roster.filter { it.id in retainedIds },
         nextAthleteId = nextAthleteId?.takeIf { it in participants })
     if (revised == this) return this
-    return revised.copy(audit = audit + "${java.time.Instant.now()} | Passändring | ${sessionLabel()} / ${sessionDetails()} / $participantIds / ${this.roster} -> ${revised.sessionLabel()} / ${revised.sessionDetails()} / $participants / $roster")
+    return revised.copy(audit = audit + AuditEntry.now(AuditKind.SESSION_EDITED, "Passändring | ${sessionLabel()} / ${sessionDetails()} / $participantIds / ${this.roster} -> ${revised.sessionLabel()} / ${revised.sessionDetails()} / $participants / $roster"))
 }
 fun Training.correct(id: String, athleteId: Int, complete: Boolean, tags: Set<Int>, note: String): Training {
     require(closedAt == null) { "Passet är avslutat" }

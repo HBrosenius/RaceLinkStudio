@@ -13,6 +13,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -41,6 +42,7 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
     var editingSkier by rememberSaveable { mutableStateOf<Int?>(null) }
     var addingSkier by rememberSaveable { mutableStateOf(false) }
     var formError by rememberSaveable { mutableStateOf<String?>(null) }
+    val nameMissing = stringResource(R.string.dash_name_missing)
     val validRoster = roster.all { skierErrors(it, roster).valid }
     val valid = name.isNotBlank() && validDate && validRoster && selected.isNotEmpty()
     val dirty = name != (if (editing) current.sessionName else "") || date != (if (editing) current.sessionDate else java.time.LocalDate.now().toString()) ||
@@ -50,33 +52,33 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
     AppFullScreenDialog(leave) {
         Surface(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (editing) "Redigera aktuellt pass" else "Starta träningspass", style = MaterialTheme.typography.headlineSmall)
+                Text(if (editing) stringResource(R.string.dash_edit_current_session) else stringResource(R.string.dash_start_training_session), style = MaterialTheme.typography.headlineSmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = section == "details", onClick = { section = "details" }, label = { Text("Passuppgifter") })
-                    FilterChip(selected = section == "participants", onClick = { section = "participants" }, label = { Text("Deltagare (${selected.size})") })
+                    FilterChip(selected = section == "details", onClick = { section = "details" }, label = { Text(stringResource(R.string.dash_session_details_tab)) })
+                    FilterChip(selected = section == "participants", onClick = { section = "participants" }, label = { Text(stringResource(R.string.dash_participants_tab, selected.size)) })
                 }
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (section == "details") {
-                        Text(if (editing) "Befintliga åk behålls. Ändringarna gäller aktuellt pass." else "Det aktuella passet sparas i historiken. Det nya passet börjar utan resultat eller ändringsmarkeringar.", style = MaterialTheme.typography.bodySmall)
-                        if (!editing) OutlinedButton(enabled = enabled, onClick = { templatePicker = true }) { Text("Hämta upplägg från pass") }
-                        OutlinedTextField(name, { name = it }, enabled = enabled, label = { Text("Passnamn *") }, isError = name.isBlank(),
-                            supportingText = { Text(if (name.isBlank()) "Ange ett passnamn" else "Obligatoriskt") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                        DateInput(date, { date = it }, "Datum *", enabled)
-                        OutlinedTextField(location, { location = it }, enabled = enabled, label = { Text("Plats (valfritt)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                        OutlinedTextField(course, { course = it }, enabled = enabled, label = { Text("Backe / bana (valfritt)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                        OutlinedTextField(type, { type = it }, enabled = enabled, label = { Text("Träningstyp (valfritt)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        Text(if (editing) stringResource(R.string.dash_edit_session_note) else stringResource(R.string.dash_new_session_note), style = MaterialTheme.typography.bodySmall)
+                        if (!editing) OutlinedButton(enabled = enabled, onClick = { templatePicker = true }) { Text(stringResource(R.string.dash_load_session_template)) }
+                        OutlinedTextField(name, { name = it }, enabled = enabled, label = { Text(stringResource(R.string.dash_session_name_required)) }, isError = name.isBlank(),
+                            supportingText = { Text(if (name.isBlank()) stringResource(R.string.dash_enter_session_name) else stringResource(R.string.dash_required)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        DateInput(date, { date = it }, stringResource(R.string.dash_date_required), enabled)
+                        OutlinedTextField(location, { location = it }, enabled = enabled, label = { Text(stringResource(R.string.dash_location_optional)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        OutlinedTextField(course, { course = it }, enabled = enabled, label = { Text(stringResource(R.string.dash_course_optional)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        OutlinedTextField(type, { type = it }, enabled = enabled, label = { Text(stringResource(R.string.dash_training_type_optional)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                     } else {
-                        Text("${selected.size} av ${roster.size} åkare deltar", style = MaterialTheme.typography.titleMedium)
-                        Text("Åkarlistan återanvänds i kommande pass. Sparade pass behåller sina åkarnamn och nummer.", style = MaterialTheme.typography.bodySmall)
-                        OutlinedTextField(query, { query = it }, enabled = enabled, label = { Text("Sök namn eller nummer") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                        Text(stringResource(R.string.dash_participants_of_roster, selected.size, roster.size), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.dash_roster_reused), style = MaterialTheme.typography.bodySmall)
+                        OutlinedTextField(query, { query = it }, enabled = enabled, label = { Text(stringResource(R.string.dash_search_name_or_number)) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(enabled = enabled, onClick = { selected = roster.filter { it.id !in current.archivedRosterIds }.map { it.id }.toSet() }) { Text("Välj alla aktiva") }
-                            TextButton(enabled = enabled, onClick = { selected = emptySet() }) { Text("Avmarkera alla") }
-                            OutlinedButton(enabled = enabled, onClick = { addingSkier = true }) { Text("Lägg till åkare") }
+                            TextButton(enabled = enabled, onClick = { selected = roster.filter { it.id !in current.archivedRosterIds }.map { it.id }.toSet() }) { Text(stringResource(R.string.dash_select_all_active)) }
+                            TextButton(enabled = enabled, onClick = { selected = emptySet() }) { Text(stringResource(R.string.dash_clear_all)) }
+                            OutlinedButton(enabled = enabled, onClick = { addingSkier = true }) { Text(stringResource(R.string.dash_add_athlete)) }
                         }
-                        FilterChip(selected = showArchived, onClick = { showArchived = !showArchived }, label = { Text("Visa även arkiverade") })
+                        FilterChip(selected = showArchived, onClick = { showArchived = !showArchived }, label = { Text(stringResource(R.string.dash_show_archived)) })
                         val matches = roster.filter { (showArchived || it.id !in current.archivedRosterIds || it.id in selected) && (query.isBlank() || it.name.contains(query.trim(), true) || it.bib.contains(query.trim())) }
-                        if (matches.isEmpty()) Text("Inga åkare matchar sökningen.")
+                        if (matches.isEmpty()) Text(stringResource(R.string.dash_no_athletes_match))
                         matches.forEach { skier ->
                             val errors = skierErrors(skier, roster)
                             Card(Modifier.fillMaxWidth()) {
@@ -84,15 +86,15 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Checkbox(checked = skier.id in selected, enabled = enabled, onCheckedChange = { checked -> selected = if (checked) selected + skier.id else selected - skier.id })
                                         Column(Modifier.weight(1f)) {
-                                            Text("${skier.bib} · ${skier.name.ifBlank { "Namn saknas" }}", style = MaterialTheme.typography.titleMedium)
-                                            if (skier.id in current.archivedRosterIds) Text("Arkiverad i lagets lista", style = MaterialTheme.typography.bodySmall)
+                                            Text("${skier.bib} · ${skier.name.ifBlank { nameMissing }}", style = MaterialTheme.typography.titleMedium)
+                                            if (skier.id in current.archivedRosterIds) Text(stringResource(R.string.dash_archived_in_team_list), style = MaterialTheme.typography.bodySmall)
                                             if (!errors.valid) Text(listOfNotNull(errors.name, errors.bib).joinToString(" · "), color = MaterialTheme.colorScheme.error)
                                         }
-                                        TextButton(enabled = enabled, onClick = { editingSkier = skier.id }) { Text("Redigera") }
+                                        TextButton(enabled = enabled, onClick = { editingSkier = skier.id }) { Text(stringResource(R.string.dash_edit)) }
                                     }
                                     if (current.roster.none { it.id == skier.id }) TextButton(enabled = enabled, onClick = {
                                         roster = roster.filter { it.id != skier.id }; selected = selected - skier.id
-                                    }) { Text("Ta bort ny åkare") }
+                                    }) { Text(stringResource(R.string.dash_remove_new_athlete)) }
                                 }
                             }
                         }
@@ -100,12 +102,12 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
                 }
                 SaveFeedback(enabled, error ?: formError)
                 if (!valid) Text(when {
-                    name.isBlank() || !validDate -> "Fyll i giltigt passnamn och datum under Passuppgifter."
-                    !validRoster -> "Rätta markerade namn eller nummer under Deltagare."
-                    else -> "Välj minst en deltagare innan du sparar."
+                    name.isBlank() || !validDate -> stringResource(R.string.dash_fill_valid_name_date)
+                    !validRoster -> stringResource(R.string.dash_fix_marked_name_number)
+                    else -> stringResource(R.string.dash_select_one_participant)
                 }, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(enabled = enabled, onClick = leave) { Text("Avbryt") }
+                    TextButton(enabled = enabled, onClick = leave) { Text(stringResource(R.string.dash_cancel)) }
                     Button(enabled = enabled && valid, onClick = {
                         formError = null
                         runCatching {
@@ -113,7 +115,7 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
                             if (editing) current.editSession(name, date, location, course, type, skiers, selected)
                             else current.startNewSession(name, date, location, course, type, skiers, selected)
                         }.onSuccess(start).onFailure { formError = it.message ?: "Passet kunde inte sparas" }
-                    }) { Text(if (editing) "Spara ändringar" else "Starta pass") }
+                    }) { Text(if (editing) stringResource(R.string.dash_save_changes) else stringResource(R.string.dash_start_session)) }
                 }
             }
         }
@@ -122,12 +124,12 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
     if (templatePicker) SessionTemplatePicker(listOf(current) + current.archivedSessions, { templatePicker = false }) { templateId = it; templatePicker = false }
     templateId?.let { id -> (listOf(current) + current.archivedSessions).find { it.sessionId == id }?.let { source ->
         val template = current.templateFrom(source)
-        AlertDialog(onDismissRequest = { templateId = null }, title = { Text("Använd upplägget från ${source.sessionLabel()}?") }, text = {
-            Text("Ersätter utkastets passnamn, plats, bana, träningstyp och deltagare. Datumet och lagets nuvarande namn/nummer behålls. ${template.participants.size} deltagare tas med; ${template.omitted} arkiverade eller saknade åkare utelämnas. Inga åk, tider eller ändringsmarkeringar kopieras.")
+        AlertDialog(onDismissRequest = { templateId = null }, title = { Text(stringResource(R.string.dash_use_template_from, source.sessionLabel())) }, text = {
+            Text(stringResource(R.string.dash_template_replace_note, template.participants.size, template.omitted))
         }, confirmButton = { TextButton(enabled = enabled, onClick = {
             name = template.name; location = template.location; course = template.course; type = template.type; selected = template.participants
             templateId = null
-        }) { Text("Använd upplägg") } }, dismissButton = { TextButton(onClick = { templateId = null }) { Text("Avbryt") } })
+        }) { Text(stringResource(R.string.dash_use_template)) } }, dismissButton = { TextButton(onClick = { templateId = null }) { Text(stringResource(R.string.dash_cancel)) } })
     } }
     editDraft?.let { draft ->
         SkierDraftDialog(draft, roster, enabled, { editingSkier = null; addingSkier = false }) { updated ->
@@ -144,14 +146,14 @@ private val RosterDraftSaver = Saver<List<SkierDraft>, String>(
     val draft = original.copy(name = name, bib = bib)
     val errors = skierErrors(draft, roster)
     val leave = draftClose(draft != original, enabled, close)
-    EditorDialog(onDismissRequest = leave, title = { Text(if (original.name.isBlank()) "Lägg till åkare" else "Redigera åkare", style = MaterialTheme.typography.headlineSmall) }, text = {
+    EditorDialog(onDismissRequest = leave, title = { Text(if (original.name.isBlank()) stringResource(R.string.dash_add_athlete) else stringResource(R.string.dash_edit_athlete), style = MaterialTheme.typography.headlineSmall) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState())) {
-            OutlinedTextField(name, { name = it }, enabled = enabled, label = { Text("Namn") }, singleLine = true,
+            OutlinedTextField(name, { name = it }, enabled = enabled, label = { Text(stringResource(R.string.dash_name)) }, singleLine = true,
                 isError = errors.name != null, supportingText = { errors.name?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(bib, { bib = it }, enabled = enabled, label = { Text("Nummer") }, singleLine = true,
+            OutlinedTextField(bib, { bib = it }, enabled = enabled, label = { Text(stringResource(R.string.dash_number)) }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), isError = errors.bib != null,
                 supportingText = { errors.bib?.let { Text(it) } }, modifier = Modifier.fillMaxWidth())
         }
-    }, confirmButton = { TextButton(enabled = enabled && errors.valid, onClick = { save(draft.copy(name = name.trim())) }) { Text("Klar") } },
-        dismissButton = { TextButton(onClick = leave) { Text("Avbryt") } })
+    }, confirmButton = { TextButton(enabled = enabled && errors.valid, onClick = { save(draft.copy(name = name.trim())) }) { Text(stringResource(R.string.dash_done)) } },
+        dismissButton = { TextButton(onClick = leave) { Text(stringResource(R.string.dash_cancel)) } })
 }

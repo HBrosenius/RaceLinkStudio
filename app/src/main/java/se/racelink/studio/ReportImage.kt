@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -58,11 +59,11 @@ internal fun createReportImage(pdf: File, output: File) {
     }
     AppFullScreenDialog(close) {
         Surface(Modifier.fillMaxSize()) { Column(Modifier.padding(16.dp)) {
-            Text("Förhandsvisa bild · PNG", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = close) { Text("Stäng") }
+            Text(stringResource(R.string.rpt_preview_image_title), style = MaterialTheme.typography.titleMedium)
+            TextButton(onClick = close) { Text(stringResource(R.string.rpt_close)) }
             error?.let { Text(it) }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
-                bitmap?.let { Image(it.asImageBitmap(), "Personlig rapportbild", Modifier.fillMaxWidth().aspectRatio(it.width.toFloat() / it.height)) }
+                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.rpt_image_desc), Modifier.fillMaxWidth().aspectRatio(it.width.toFloat() / it.height)) }
             }
         } }
     }

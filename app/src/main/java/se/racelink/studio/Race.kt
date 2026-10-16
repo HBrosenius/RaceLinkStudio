@@ -27,14 +27,14 @@ internal fun Training.configureRace(config: RaceConfig): Training {
     require(attempts.isEmpty() || config.format == race?.format) { "Tävlingsformen låses efter första resultatet." }
     val next = copy(race = config)
     next.validateRace()
-    return next.copy(audit = audit + "${java.time.Instant.now()} | Tävlingsupplägg | $race -> $config")
+    return next.copy(audit = audit + AuditEntry.now(AuditKind.RACE_CONFIGURED, "Tävlingsupplägg | $race -> $config"))
 }
 
 internal fun Training.selectRaceRound(round: Int): Training {
     require(closedAt == null && round in 1..2)
     val r = requireNotNull(race)
     if (r.activeRound == round) return this
-    return copy(race = r.copy(activeRound = round), audit = audit + "${java.time.Instant.now()} | Aktivt tävlingsåk | ${r.activeRound} -> $round")
+    return copy(race = r.copy(activeRound = round), audit = audit + AuditEntry.now(AuditKind.RACE_ROUND_SELECTED, "Aktivt tävlingsåk | ${r.activeRound} -> $round"))
 }
 
 internal fun Training.raceRun(athleteId: Int, round: Int): Attempt? = race?.roundByAttempt?.entries
@@ -64,14 +64,14 @@ internal fun Training.assignRaceRun(id: String, round: Int?): Training {
     require(round == null || raceRun(run.athleteId, round)?.id.let { it == null || it == id }) { "Åket har redan ett resultat. Ta bort den tilldelningen först." }
     val next = copy(race = r.copy(roundByAttempt = if (round == null) r.roundByAttempt - id else r.roundByAttempt + (id to round), unusedAttemptIds = r.unusedAttemptIds - id))
     next.validateRace()
-    return next.copy(audit = audit + "${java.time.Instant.now()} | Tävlingsåk tilldelat | $id: ${r.roundByAttempt[id]} -> $round")
+    return next.copy(audit = audit + AuditEntry.now(AuditKind.RACE_RUN_ASSIGNED, "Tävlingsåk tilldelat | $id: ${r.roundByAttempt[id]} -> $round"))
 }
 
 internal fun Training.excludeRaceRun(id: String): Training {
     require(closedAt == null)
     val r = requireNotNull(race)
     require(attempts.any { it.id == id } && id !in r.roundByAttempt) { "Ta först bort åktilldelningen." }
-    return copy(race = r.copy(unusedAttemptIds = r.unusedAttemptIds + id), audit = audit + "${java.time.Instant.now()} | Extraresultat undantaget från tävling | $id")
+    return copy(race = r.copy(unusedAttemptIds = r.unusedAttemptIds + id), audit = audit + AuditEntry.now(AuditKind.RACE_RUN_EXCLUDED, "Extraresultat undantaget från tävling | $id"))
 }
 
 internal data class RaceStanding(val athlete: Athlete, val className: String, val first: Attempt?, val second: Attempt?,
